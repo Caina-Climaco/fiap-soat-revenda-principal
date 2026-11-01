@@ -79,7 +79,15 @@ warn_required_dynamic_aliases = true
 minversion = "9.0"
 testpaths = ["tests"]
 pythonpath = ["tests"]
-addopts = ["-m", "not e2e", "--strict-markers", "--import-mode=importlib", "-ra"]
+# tests/e2e tem pytest.ini proprio e roda so no CD, contra o ambiente implantado.
+addopts = [
+    "-m",
+    "not e2e",
+    "--strict-markers",
+    "--import-mode=importlib",
+    "--ignore=tests/e2e",
+    "-ra",
+]
 markers = [
     "unit: testes de unidade (sem banco, sem rede, relógio fixo)",
     "integration: testes de integração (PostgreSQL real via TEST_DATABASE_URL)",

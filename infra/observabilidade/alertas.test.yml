@@ -1,0 +1,151 @@
+# Testes de unidade das regras de alerta (promtool test rules), rodados no CI (job infra):
+#   docker run --rm -v "$PWD/infra/observabilidade:/o" -w /o --entrypoint promtool \
+#     prom/prometheus:v3.14.0 test rules alertas.test.yml
+rule_files:
+  - alertas.yml
+
+evaluation_interval: 1m
+
+tests:
+  # Principal sem coleta por mais de 2 minutos -> PrincipalFora
+  - interval: 1m
+    input_series:
+      - series: 'up{job="revenda-principal", pod="revenda-principal-1"}'
+        values: "1 1 0 0 0 0"
+      - series: 'up{job="revenda-vendas", pod="revenda-vendas-1"}'
+        values: "1 1 1 1 1 1"
+      - series: 'up{job="kong", pod="kong-1"}'
+        values: "1 1 1 1 1 1"
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: PrincipalFora
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: PrincipalFora
+        exp_alerts:
+          - exp_labels:
+              severidade: critica
+              job: revenda-principal
+              pod: revenda-principal-1
+            exp_annotations:
+              resumo: "Servico principal sem coleta de metricas"
+              acao: "kubectl -n principal get pods; kubectl -n principal rollout status deployment/revenda-principal"
+      - eval_time: 5m
+        alertname: VendasFora
+        exp_alerts: []
+
+  # Servico de venda nunca implantado -> VendasFora (absent)
+  - interval: 1m
+    input_series:
+      - series: 'up{job="revenda-principal", pod="revenda-principal-1"}'
+        values: "1x5"
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: VendasFora
+        exp_alerts:
+          - exp_labels:
+              severidade: critica
+              job: revenda-vendas
+            exp_annotations:
+              resumo: "Servico de venda sem coleta de metricas"
+              acao: "kubectl -n vendas get pods; kubectl -n vendas rollout status deployment/revenda-vendas"
+
+  # 5% de respostas 5xx no servico de venda -> Erros5xxAltos so para ele
+  - interval: 1m
+    input_series:
+      - series: 'revenda_http_requisicoes_total{job="revenda-vendas", metodo="GET", rota="/api/v1/veiculos/a-venda", status="200"}'
+        values: "0+95x15"
+      - series: 'revenda_http_requisicoes_total{job="revenda-vendas", metodo="POST", rota="/api/v1/compras", status="503"}'
+        values: "0+5x15"
+      - series: 'revenda_http_requisicoes_total{job="revenda-principal", metodo="POST", rota="/api/v1/veiculos", status="201"}'
+        values: "0+10x15"
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: Erros5xxAltos
+        exp_alerts:
+          - exp_labels:
+              severidade: critica
+              job: revenda-vendas
+            exp_annotations:
+              resumo: "Mais de 1% de respostas 5xx em revenda-vendas"
+              acao: "Logs nivel=ERROR por request_id e o trace no Jaeger pelo trace_id; rollback se coincidir com deploy"
+
+  # Circuito aberto por mais de 1 minuto; meio-aberto nao alerta
+  - interval: 1m
+    input_series:
+      - series: 'revenda_circuito_estado{job="revenda-vendas", pod="revenda-vendas-1", destino="principal"}'
+        values: "0 1 2 2 2 2"
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: CircuitoAbertoParaPrincipal
+        exp_alerts: []
+      - eval_time: 4m
+        alertname: CircuitoAbertoParaPrincipal
+        exp_alerts:
+          - exp_labels:
+              severidade: critica
+            exp_annotations:
+              resumo: "Circuit breaker do servico de venda para o principal esta aberto"
+              acao: "Compras falham na hora com 503 e Retry-After; verificar o servico principal"
+
+  # Outbox: falha definitiva alerta na hora; acumulo so depois de 5 minutos
+  - interval: 1m
+    input_series:
+      - series: 'revenda_outbox_entregas_total{job="revenda-principal", tipo="resultado_pagamento", resultado="falhou"}'
+        values: "0 0 1 1 1 1 1 1 1 1"
+      - series: 'revenda_outbox_pendentes{job="revenda-principal", pod="revenda-principal-1"}'
+        values: "0 60 60 60 60 60 60 60 60 60"
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: OutboxComFalhaDefinitiva
+        exp_alerts:
+          - exp_labels:
+              severidade: critica
+            exp_annotations:
+              resumo: "Mensagem da outbox marcada como FALHOU (tentativas esgotadas ou recusa definitiva)"
+              acao: "Consultar mensageria.outbox com status FALHOU e reprocessar apos corrigir a causa"
+      - eval_time: 3m
+        alertname: OutboxAcumulando
+        exp_alerts: []
+      - eval_time: 8m
+        alertname: OutboxAcumulando
+        exp_alerts:
+          - exp_labels:
+              severidade: alerta
+            exp_annotations:
+              resumo: "Mensagens da outbox do principal acumulando"
+              acao: "O servico de venda esta fora ou recusando; ver revenda_outbox_entregas_total por resultado"
+
+  # Trafego saudavel: nenhum alerta de erro, saga ou gateway
+  - interval: 1m
+    input_series:
+      - series: 'revenda_http_requisicoes_total{job="revenda-vendas", metodo="GET", rota="/api/v1/veiculos/a-venda", status="200"}'
+        values: "0+100x15"
+      - series: 'kong_http_requests_total{route="vitrine", code="200"}'
+        values: "0+100x15"
+      - series: 'revenda_circuito_estado{job="revenda-vendas", pod="revenda-vendas-1", destino="principal"}'
+        values: "0x15"
+      - series: 'revenda_outbox_pendentes{job="revenda-principal", pod="revenda-principal-1"}'
+        values: "0x15"
+      - series: 'up{job="revenda-principal", pod="revenda-principal-1"}'
+        values: "1x15"
+      - series: 'up{job="revenda-vendas", pod="revenda-vendas-1"}'
+        values: "1x15"
+      - series: 'up{job="kong", pod="kong-1"}'
+        values: "1x15"
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: Erros5xxAltos
+        exp_alerts: []
+      - eval_time: 12m
+        alertname: CircuitoAbertoParaPrincipal
+        exp_alerts: []
+      - eval_time: 12m
+        alertname: OutboxAcumulando
+        exp_alerts: []
+      - eval_time: 12m
+        alertname: KongRejeicoesNaBorda
+        exp_alerts: []
+      - eval_time: 12m
+        alertname: PrincipalFora
+        exp_alerts: []

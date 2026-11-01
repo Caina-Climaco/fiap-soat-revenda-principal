@@ -1,0 +1,23 @@
+# Configuracao nao sensivel do servico principal. Os segredos vem dos Secrets criados pelo
+# Terraform (infra/terraform/secrets.tf): principal-db-credentials, principal-webhook e
+# principal-tokens-servico.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: revenda-principal-config
+  labels:
+    app: revenda-principal
+    app.kubernetes.io/name: revenda-principal
+    app.kubernetes.io/part-of: revenda-veiculos
+data:
+  DB_HOST: principal-db.principal.svc.cluster.local
+  DB_PORT: "5432"
+  # Contrato com o servico de venda (ADR-006): nome do Service publicado pelo outro repositorio
+  VENDAS_URL: http://revenda-vendas.vendas.svc.cluster.local:8000
+  CONSUMIDOR_GESTOR: gestor
+  # Swagger em http://localhost:8080/principal/docs (rota documentacao-principal do Kong)
+  DOCS_PREFIXO: /principal
+  OUTBOX_RELAY_ATIVO: "true"
+  LOG_LEVEL: INFO
+  # Tracing (ADR-007): OTLP/HTTP para o OpenTelemetry Collector do namespace observabilidade
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector.observabilidade.svc.cluster.local:4318

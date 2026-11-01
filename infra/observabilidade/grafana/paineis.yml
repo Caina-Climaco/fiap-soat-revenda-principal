@@ -1,0 +1,10 @@
+# Provedor de paineis: carrega os JSON montados em /var/lib/grafana/paineis.
+apiVersion: 1
+providers:
+  - name: revenda
+    folder: Revenda
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    options:
+      path: /var/lib/grafana/paineis

@@ -84,6 +84,23 @@ def test_openapi_documenta_autorizacao_e_problem_json(api: Api) -> None:
     assert api.http.get("/docs").status_code == 200
 
 
+def test_documentacao_com_prefixo_do_kong(settings: Settings, banco: BancoDeDados) -> None:
+    com_prefixo = settings.model_copy(update={"docs_prefixo": "/principal"})
+    app = criar_app(com_prefixo, banco=banco, entregador=EntregadorFalso())
+    with TestClient(app) as cliente:
+        pagina = cliente.get("/principal/docs")
+        assert pagina.status_code == 200
+        assert "/principal/openapi.json" in pagina.text
+        assert cliente.get("/principal/openapi.json").json()["paths"]
+        assert cliente.get("/docs").status_code == 404
+
+
+@pytest.mark.parametrize("prefixo", ["principal", "/principal/", "/Principal", "/a b"])
+def test_prefixo_da_documentacao_invalido(settings: Settings, prefixo: str) -> None:
+    with pytest.raises(ValueError, match="docs_prefixo"):
+        Settings.model_validate({**settings.model_dump(), "docs_prefixo": prefixo})
+
+
 # ---------------------------------------------------------------- erros e correlação
 
 

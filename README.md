@@ -1,13 +1,14 @@
 # Revenda de Veículos: serviço principal
 
 [![CI](https://github.com/Caina-Climaco/fiap-soat-revenda-principal/actions/workflows/ci.yml/badge.svg)](https://github.com/Caina-Climaco/fiap-soat-revenda-principal/actions/workflows/ci.yml)
+[![CD](https://github.com/Caina-Climaco/fiap-soat-revenda-principal/actions/workflows/cd.yml/badge.svg)](https://github.com/Caina-Climaco/fiap-soat-revenda-principal/actions/workflows/cd.yml)
+[![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=Caina-Climaco_fiap-soat-revenda-principal&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=Caina-Climaco_fiap-soat-revenda-principal)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=Caina-Climaco_fiap-soat-revenda-principal&metric=coverage)](https://sonarcloud.io/summary/new_code?id=Caina-Climaco_fiap-soat-revenda-principal)
 
 Trabalho Substitutivo do Tech Challenge, FIAP PósTech Software Architecture (SOAT), Fase 4.
 Autor: Cainã Clímaco, RM366473 (trabalho individual).
 
 > **Esta entrega tem dois repositórios.** Este é o do **serviço principal** (Catálogo e Pagamentos, PostgreSQL), que também mantém a plataforma comum (Kong e observabilidade) e a documentação da solução. O **serviço de venda** (listagens e compras, MongoDB, orquestração da saga) está em **[fiap-soat-revenda-vendas](https://github.com/Caina-Climaco/fiap-soat-revenda-vendas)**.
-
-**Em construção.** Este README cresce a cada PR; a infraestrutura (kind, Terraform, Kong, observabilidade) e o CD entram nos próximos.
 
 ## 1. O que é
 
@@ -66,11 +67,49 @@ uv run pytest -m "unit or integration" --cov=principal --cov-branch --cov-fail-u
 
 Os testes de integração rodam contra PostgreSQL real e cobrem, entre outros, corridas de verdade no banco (pagamento e expiração simultâneos, bloqueios concorrentes, T2 atrasado contra C2) e o relay com duas "réplicas" disputando a outbox.
 
-## 4. Fluxo de contribuição
+## 4. Como executar localmente (cluster kind)
 
-A `main` é protegida: toda mudança entra por Pull Request, com título em Conventional Commits e os checks do CI verdes (`qualidade`, `testes`, `titulo-pr`). O script `scripts/windows/abrir-pr.ps1` cria a branch, faz o commit, abre o PR e acompanha os checks.
+Tudo roda num cluster [kind](https://kind.sigs.k8s.io/) no PC, criado e configurado por Terraform. Pré-requisitos: Windows 11 com Docker Desktop, `kind`, `kubectl` e `terraform` (`scripts/windows/01-instalar-ferramentas.ps1` instala o que faltar).
 
-## 5. Documentação
+```powershell
+# 1. Plataforma e infraestrutura do principal: cluster, PostgreSQL, Kong, Prometheus,
+#    Grafana, OpenTelemetry Collector e Jaeger (-RecriarCluster se houver um cluster da Fase 3)
+powershell -ExecutionPolicy Bypass -File .\scripts\windows\04-subir-ambiente.ps1
+
+# 2. Runner do CD deste repositório (container no Docker Desktop) e o primeiro deploy
+powershell -ExecutionPolicy Bypass -File .\scripts\windows\03-instalar-runner.ps1
+gh workflow run cd.yml -R Caina-Climaco/fiap-soat-revenda-principal
+
+# 3. Depois, o serviço de venda pelo repositório dele (fiap-soat-revenda-vendas)
+
+# Chaves e segredos para a demonstração
+powershell -ExecutionPolicy Bypass -File .\scripts\windows\segredos.ps1
+```
+
+| Endereço | O quê |
+|---|---|
+| `http://localhost:8080` | Kong, a única entrada pública dos dois serviços |
+| `http://localhost:8080/principal/docs` | Swagger do principal (rotas do gestor exigem o header `apikey`) |
+| `http://localhost:3000` | Grafana: painéis "visão geral" e "saga e resiliência" |
+| `http://localhost:9090` | Prometheus: alvos e alertas |
+| `http://localhost:16686` | Jaeger: traces da compra de ponta a ponta |
+| `localhost:15432` | PostgreSQL do principal (demonstração) |
+
+Exemplo com a chave do gestor:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/veiculos -H "apikey: <chave do gestor>" \
+  -H "Content-Type: application/json" \
+  -d '{"marca":"Fiat","modelo":"Argo","ano":2022,"cor":"Branco","preco":"72900.00"}'
+```
+
+Detalhes da infraestrutura em [infra/README.md](infra/README.md) e do CI/CD em [docs/08](docs/08-ci-cd.md).
+
+## 5. Fluxo de contribuição
+
+A `main` é protegida: toda mudança entra por Pull Request, com título em Conventional Commits e os checks do CI verdes (`qualidade`, `testes`, `sonarcloud`, `imagem`, `infra`, `titulo-pr`). O merge dispara o CD, que implanta no kind e roda os testes ponta a ponta pelo Kong (`tests/e2e`). O script `scripts/windows/abrir-pr.ps1` cria a branch, faz o commit, abre o PR e acompanha os checks.
+
+## 6. Documentação
 
 | Documento | Conteúdo |
 |---|---|
@@ -78,4 +117,6 @@ A `main` é protegida: toda mudança entra por Pull Request, com título em Conv
 | [02. Modelagem DDD](docs/02-modelagem-ddd.md) | Domain Storytelling, Event Storming, contextos, agregados e a saga da compra |
 | [03. Requisitos](docs/03-requisitos.md) | Requisitos funcionais e não funcionais |
 | [05. Contratos da API](docs/05-api.md) | Rotas públicas e internas dos dois serviços |
+| [08. CI/CD e infraestrutura](docs/08-ci-cd.md) | Checks do CI, passos do CD, scripts do ambiente local |
+| [12. Observabilidade](docs/12-observabilidade.md) | Logs, métricas, traces, painéis e alertas |
 | [ADRs](docs/adrs/README.md) | Decisões de arquitetura da solução |

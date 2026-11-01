@@ -1,0 +1,157 @@
+# Configuracao declarativa do Kong (modo DB-less, ADR-006). Renderizada pelo Terraform
+# (infra/terraform/gateway.tf) e entregue ao pod como Secret, porque contem as chaves dos
+# consumers. O CI renderiza com valores de teste e valida com `kong config parse`.
+#
+# Rotas (docs/05-api.md, secao 5.3). O Kong escolhe o prefixo mais longo, por isso as rotas
+# do servico de venda dentro de /api/v1/veiculos vencem a rota do gestor.
+#   vitrine                 GET /api/v1/veiculos/a-venda|vendidos, /api/v1/anuncios   -> venda
+#   compras                 POST /api/v1/compras (rate limiting mais restrito)        -> venda
+#   compras-consulta        GET /api/v1/compras/{id}                                  -> venda
+#   veiculos-gestor         /api/v1/veiculos (cadastro, edicao, consulta)              -> principal
+#                           key-auth (header apikey) + ACL gestor
+#   webhook-pagamento       POST /api/v1/pagamentos/webhook                           -> principal
+#                           key-auth + ACL gateway-pagamento (o principal confere ainda o
+#                           X-Webhook-Secret, defesa em profundidade)
+#   documentacao-*          GET /principal/docs, /vendas/docs e os openapi.json
+# /internal/v1, /metrics e /health NAO tem rota: o Kong responde 404.
+_format_version: "3.0"
+_transform: true
+
+services:
+  - name: revenda-principal
+    url: http://revenda-principal.${namespace_principal}.svc.cluster.local:8000
+    connect_timeout: 5000
+    read_timeout: 30000
+    write_timeout: 30000
+    retries: 2
+    routes:
+      - name: veiculos-gestor
+        paths: ["/api/v1/veiculos"]
+        methods: ["GET", "POST", "PATCH"]
+        strip_path: false
+        plugins:
+          - name: key-auth
+            config:
+              key_names: ["apikey"]
+              key_in_header: true
+              key_in_query: false
+              key_in_body: false
+              hide_credentials: true
+          - name: acl
+            config:
+              allow: ["gestor"]
+              hide_groups_header: true
+          - name: rate-limiting
+            config:
+              minute: ${limite_geral_minuto}
+              policy: local
+              limit_by: ip
+      - name: webhook-pagamento
+        paths: ["/api/v1/pagamentos/webhook"]
+        methods: ["POST"]
+        strip_path: false
+        plugins:
+          - name: key-auth
+            config:
+              key_names: ["apikey"]
+              key_in_header: true
+              key_in_query: false
+              key_in_body: false
+              hide_credentials: true
+          - name: acl
+            config:
+              allow: ["gateway-pagamento"]
+              hide_groups_header: true
+      - name: documentacao-principal
+        paths: ["/principal/docs", "/principal/openapi.json"]
+        methods: ["GET"]
+        strip_path: false
+
+  - name: revenda-vendas
+    url: http://revenda-vendas.${namespace_vendas}.svc.cluster.local:8000
+    connect_timeout: 5000
+    read_timeout: 30000
+    write_timeout: 30000
+    # POST /api/v1/compras nao e idempotente: o Kong nao repete a chamada ao servico de venda
+    # (a resiliencia fica entre os servicos, ADR-004).
+    retries: 0
+    routes:
+      - name: vitrine
+        paths: ["/api/v1/veiculos/a-venda", "/api/v1/veiculos/vendidos", "/api/v1/anuncios"]
+        methods: ["GET"]
+        strip_path: false
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: ${limite_geral_minuto}
+              policy: local
+              limit_by: ip
+      - name: compras
+        paths: ["/api/v1/compras"]
+        methods: ["POST"]
+        strip_path: false
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: ${limite_compra_minuto}
+              policy: local
+              limit_by: ip
+      - name: compras-consulta
+        paths: ["/api/v1/compras"]
+        methods: ["GET"]
+        strip_path: false
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: ${limite_geral_minuto}
+              policy: local
+              limit_by: ip
+      - name: documentacao-vendas
+        paths: ["/vendas/docs", "/vendas/openapi.json"]
+        methods: ["GET"]
+        strip_path: false
+
+plugins:
+  # Mesmo cabecalho de correlacao dos servicos (X-Request-ID): o Kong gera quando o cliente
+  # nao manda, e os servicos registram o mesmo valor nos logs.
+  - name: correlation-id
+    config:
+      header_name: X-Request-ID
+      generator: uuid
+      echo_downstream: true
+  - name: request-size-limiting
+    config:
+      allowed_payload_size: 1
+      size_unit: megabytes
+  # Metricas do gateway em :8100/metrics (status listener), coletadas pelo Prometheus.
+  - name: prometheus
+    config:
+      status_code_metrics: true
+      latency_metrics: true
+      bandwidth_metrics: true
+      upstream_health_metrics: true
+      per_consumer: true
+  # Tracing (ADR-007): o span raiz nasce aqui; o traceparent W3C segue para os servicos.
+  - name: opentelemetry
+    config:
+      traces_endpoint: ${otlp_traces}
+      resource_attributes:
+        service.name: kong
+      propagation:
+        extract: ["w3c"]
+        inject: ["preserve"]
+        default_format: w3c
+
+consumers:
+  - username: gestor
+    custom_id: gestor-da-loja
+    keyauth_credentials:
+      - key: "${chave_gestor}"
+    acls:
+      - group: gestor
+  - username: gateway-pagamento
+    custom_id: gateway-pagamento-simulado
+    keyauth_credentials:
+      - key: "${chave_gateway_pagamento}"
+    acls:
+      - group: gateway-pagamento

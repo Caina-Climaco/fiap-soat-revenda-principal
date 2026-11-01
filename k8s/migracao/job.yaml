@@ -1,0 +1,72 @@
+# Migracao do banco do principal (docs/06-dados.md). Mesma imagem da API.
+# O CD apaga o Job anterior antes de aplicar (Jobs sao imutaveis).
+# Comando: `python -m principal.migracao` (src/principal/migracao.py) em vez de
+# `alembic upgrade head`. Se a revisao gravada no banco for desconhecida pelos scripts
+# desta imagem (banco "a frente", tipico de rollback para um SHA anterior), o script
+# registra o fato e termina com 0 sem tocar no banco; caso contrario roda upgrade head.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: principal-migracao
+  labels:
+    app: principal-migracao
+    app.kubernetes.io/name: principal-migracao
+    app.kubernetes.io/component: migracao
+    app.kubernetes.io/part-of: revenda-veiculos
+spec:
+  backoffLimit: 2
+  activeDeadlineSeconds: 300
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels:
+        # "app" e o rotulo usado pela NetworkPolicy do principal-db (infra/terraform).
+        app: principal-migracao
+        app.kubernetes.io/name: principal-migracao
+        app.kubernetes.io/component: migracao
+        app.kubernetes.io/part-of: revenda-veiculos
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: migracao
+          image: revenda-principal:dev
+          imagePullPolicy: IfNotPresent
+          workingDir: /app
+          command: ["python", "-m", "principal.migracao"]
+          env:
+            - name: DB_HOST
+              value: principal-db.principal.svc.cluster.local
+            - name: DB_PORT
+              value: "5432"
+          envFrom:
+            # DB_USER, DB_PASSWORD, DB_NAME
+            - secretRef:
+                name: principal-db-credentials
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi

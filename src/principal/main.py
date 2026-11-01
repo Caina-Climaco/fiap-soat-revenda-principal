@@ -119,6 +119,9 @@ def criar_app(
         description=DESCRICAO,
         openapi_tags=TAGS,
         lifespan=ciclo_de_vida,
+        docs_url=f"{settings.docs_prefixo}/docs",
+        openapi_url=f"{settings.docs_prefixo}/openapi.json",
+        redoc_url=None,
     )
     # O último adicionado é o mais externo: a correlação envolve as métricas, então o 500
     # que ela produz para uma exceção também é contado.
