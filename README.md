@@ -119,7 +119,15 @@ A `main` é protegida: toda mudança entra por Pull Request, com título em Conv
 | [01. Visão geral](docs/01-visao-geral.md) | Problema, escopo, atores, premissas e restrições |
 | [02. Modelagem DDD](docs/02-modelagem-ddd.md) | Domain Storytelling, Event Storming, contextos, agregados e a saga da compra |
 | [03. Requisitos](docs/03-requisitos.md) | Requisitos funcionais e não funcionais |
+| [04. Arquitetura](docs/04-arquitetura.md) | C4, implantação e diagramas de sequência |
 | [05. Contratos da API](docs/05-api.md) | Rotas públicas e internas dos dois serviços |
-| [08. CI/CD e infraestrutura](docs/08-ci-cd.md) | Checks do CI, passos do CD, scripts do ambiente local |
+| [06. Dados](docs/06-dados.md) | Bancos, tabelas, coleções, índices e retenção |
+| [07. Segurança e LGPD](docs/07-seguranca-lgpd.md) | Ameaças, controles e o tratamento do CPF |
+| [08. CI/CD e infraestrutura](docs/08-ci-cd.md) | Checks do CI, passos do CD, scripts do ambiente local e recursos |
+| [09. Testes](docs/09-testes.md) | Pirâmide, contratos, BDD, e2e e testes de requisitos não funcionais |
+| [10. Plano de execução](docs/10-plano-execucao.md) | Backlog, critérios de pronto, cronograma e riscos |
+| [11. Roteiro do vídeo](docs/11-roteiro-video.md) | Demonstração da entrega |
 | [12. Observabilidade](docs/12-observabilidade.md) | Logs, métricas, traces, painéis e alertas |
+| [13. DAS](docs/13-das.md) | Folha de aprovação do desenho |
 | [ADRs](docs/adrs/README.md) | Decisões de arquitetura da solução |
+| [Contratos internos](contratos/README.md) | Contratos OpenAPI das rotas internas e como são verificados |
