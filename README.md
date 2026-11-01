@@ -63,6 +63,9 @@ uv run pytest -m unit
 # unidade + integração com cobertura (o banco é recriado pelas migrações a cada execução)
 export TEST_DATABASE_URL=postgresql+psycopg://revenda:revenda@localhost:5432/revenda_principal_test
 uv run pytest -m "unit or integration" --cov=principal --cov-branch --cov-fail-under=80
+
+# contratos das rotas internas com o serviço de venda (contratos/README.md)
+uv run pytest -m contrato
 ```
 
 Os testes de integração rodam contra PostgreSQL real e cobrem, entre outros, corridas de verdade no banco (pagamento e expiração simultâneos, bloqueios concorrentes, T2 atrasado contra C2) e o relay com duas "réplicas" disputando a outbox.
@@ -107,7 +110,7 @@ Detalhes da infraestrutura em [infra/README.md](infra/README.md) e do CI/CD em [
 
 ## 5. Fluxo de contribuição
 
-A `main` é protegida: toda mudança entra por Pull Request, com título em Conventional Commits e os checks do CI verdes (`qualidade`, `testes`, `sonarcloud`, `imagem`, `infra`, `titulo-pr`). O merge dispara o CD, que implanta no kind e roda os testes ponta a ponta pelo Kong (`tests/e2e`). O script `scripts/windows/abrir-pr.ps1` cria a branch, faz o commit, abre o PR e acompanha os checks.
+A `main` é protegida: toda mudança entra por Pull Request, com título em Conventional Commits e os checks do CI verdes (`qualidade`, `testes`, `contrato`, `sonarcloud`, `imagem`, `infra`, `titulo-pr`). O merge dispara o CD, que implanta no kind e roda os testes ponta a ponta pelo Kong (`tests/e2e`). O script `scripts/windows/abrir-pr.ps1` cria a branch, faz o commit, abre o PR e acompanha os checks.
 
 ## 6. Documentação
 
