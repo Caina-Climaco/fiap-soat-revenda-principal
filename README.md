@@ -60,7 +60,7 @@ uv run ruff check . && uv run ruff format --check . && uv run mypy src && uv run
 # só unidade (sem banco)
 uv run pytest -m unit
 
-# unidade + integração com cobertura (o banco é recriado pelas migrações a cada execução)
+# unidade + integração com cobertura (100%; o banco é recriado pelas migrações a cada execução)
 export TEST_DATABASE_URL=postgresql+psycopg://revenda:revenda@localhost:5432/revenda_principal_test
 uv run pytest -m "unit or integration" --cov=principal --cov-branch --cov-fail-under=80
 
@@ -87,6 +87,9 @@ gh workflow run cd.yml -R Caina-Climaco/fiap-soat-revenda-principal
 
 # Chaves e segredos para a demonstração
 powershell -ExecutionPolicy Bypass -File .\scripts\windows\segredos.ps1
+
+# Apaga os veículos E2E que os testes ponta a ponta deixam nos dois bancos (-Simular só conta; -Tudo zera)
+powershell -ExecutionPolicy Bypass -File .\scripts\windows\limpar-dados.ps1
 ```
 
 | Endereço | O quê |

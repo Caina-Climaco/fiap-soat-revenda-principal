@@ -14,6 +14,8 @@ O trace nasce no Kong (plugin `opentelemetry`) e segue pelo `traceparent` para o
 
 O Collector remove atributos com dado pessoal ou credencial (CPF, corpo da requisição, `apikey`, `X-Webhook-Secret`, `X-Service-Token`) antes de enviar ao Jaeger, como segunda barreira (os serviços já não os registram).
 
+Os traces também são consultáveis no Grafana (Explore, fonte **Jaeger**). Essa fonte nativa do Grafana usa a API HTTP v1 de busca do Jaeger (`/api/services`, `/api/traces`), que o Jaeger 2.21 removeu ([jaegertracing/jaeger#9260](https://github.com/jaegertracing/jaeger/pull/9260)); por isso o Jaeger está fixado em 2.20.0. O CD do principal verifica o health check da fonte pelo Grafana a cada deploy, então uma atualização futura que a quebre falha o pipeline em vez de passar despercebida.
+
 ## 12.2 Métricas
 
 | Métrica | Serviço | Uso |

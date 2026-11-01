@@ -313,6 +313,20 @@ jobs:
           # Jaeger v2: API de consulta /api/v3 (a interna /api/services pode nao existir)
           servicos="$(curl -fsS --max-time 5 "${E2E_JAEGER_URL}/api/v3/services" || curl -fsS --max-time 5 "${E2E_JAEGER_URL}/api/services")"
           echo "OK: Collector no ar e Jaeger responde: ${servicos:0:200}"
+          # A fonte Jaeger do Grafana usa a API v1 do Jaeger; o health check dela lista os
+          # servicos pelo proxy do Grafana (com o admin, lido do Secret e mascarado).
+          senha="$(kubectl -n observabilidade get secret grafana-admin -o jsonpath='{.data.GF_SECURITY_ADMIN_PASSWORD}' | base64 -d)"
+          echo "::add-mask::${senha}"
+          for _ in $(seq 1 12); do
+            saude="$(curl -sS --max-time 10 -u "admin:${senha}" "${GRAFANA_URL}/api/datasources/uid/jaeger/health" || true)"
+            [ "$(printf '%s' "$saude" | jq -r '.status // empty' 2>/dev/null || true)" = "OK" ] && break
+            sleep 5
+          done
+          if [ "$(printf '%s' "${saude:-}" | jq -r '.status // empty' 2>/dev/null || true)" != "OK" ]; then
+            echo "::error::Fonte Jaeger do Grafana sem saude: ${saude:0:300}"
+            exit 1
+          fi
+          echo "OK: Grafana consulta o Jaeger ($(printf '%s' "$saude" | jq -r '.message'))"
 
       # Contrato com o outro repositorio: o e2e de integracao so roda com o servico de venda
       # no ar. Sem ele, o CD deste repositorio continua valido (ordem do ADR-006).

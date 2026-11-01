@@ -4,14 +4,14 @@
 
 | Nível | Principal | Venda | O que cobre | Onde roda |
 |---|---|---|---|---|
-| Unidade | 145 | 65 | Domínio (Veiculo, Cobranca, Compra, CPF), casos de uso com dublês, relay, cliente resiliente, circuit breaker, cifra, configuração, arquitetura | CI (`testes`) |
-| Integração | 79 | 71 | API real com o banco real (PostgreSQL 16 / MongoDB 7): rotas, erros RFC 9457, outbox, concorrência, saga com o principal simulado, recuperação, logs sem CPF | CI (`testes`) |
+| Unidade | 149 | 71 | Domínio (Veiculo, Cobranca, Compra, CPF), casos de uso com dublês, relay, cliente resiliente, circuit breaker, cifra, configuração, arquitetura | CI (`testes`) |
+| Integração | 82 | 76 | API real com o banco real (PostgreSQL 16 / MongoDB 7): rotas, erros RFC 9457, outbox, concorrência, saga com o principal simulado, recuperação, logs sem CPF | CI (`testes`) |
 | BDD | | 4 | O fluxo da compra em Gherkin (pytest-bdd) | CI (`testes`) |
 | Contrato | 6 | 4 | Rotas internas nos dois lados (seção 9.4) | CI (`contrato`) |
-| Ponta a ponta | 24 | 12 | Ambiente implantado, sempre pelo Kong | CD |
-| Carga | | 1 script | p95 das listagens (RNF-10) | Sob demanda (`carga-listagens.ps1`) |
+| Ponta a ponta | 24 | 14 | Ambiente implantado, sempre pelo Kong | CD |
+| Carga | | 1 script | p95 das listagens (RNF-10) | CD do serviço de venda, depois do e2e; e sob demanda (`carga-listagens.ps1`) |
 
-Cobertura de linhas e ramos: **99%** nos dois serviços (mínimo exigido de 80%, `--cov-fail-under=80`), enviada ao SonarCloud e exibida no resumo de cada execução do CI.
+Cobertura de linhas e ramos: **100%** nos dois serviços (mínimo exigido de 80%, `--cov-fail-under=80`), enviada ao SonarCloud e exibida no resumo de cada execução do CI. As poucas linhas excluídas com `# pragma: no cover` são verificações de exaustividade (`assert_never`) que o mypy prova inalcançáveis.
 
 ## 9.2 Ferramentas
 
@@ -58,7 +58,7 @@ Na primeira execução, os testes de contrato acharam duas divergências reais: 
 
 ## 9.5 Cenários BDD
 
-O fluxo da compra está em `tests/bdd/features/compra.feature` (serviço de venda), executado no CI com o principal simulado. Os mesmos cenários, menos a expiração (o prazo é de 30 minutos), são verificados de ponta a ponta no CD contra os dois serviços reais.
+O fluxo da compra está em `tests/bdd/features/compra.feature` (serviço de venda), executado no CI com o principal simulado. Os mesmos cenários são verificados de ponta a ponta no CD contra os dois serviços reais; a expiração, cujo prazo é de 30 minutos, é provada adiantando as datas no MongoDB e executando a recuperação de verdade (`test_e2e_recuperacao`).
 
 ```gherkin
 # language: pt
@@ -107,6 +107,7 @@ Funcionalidade: Compra de veículo coordenada pela saga
 | principal | `test_e2e_tracing` | Kong, principal e venda no Jaeger; um trace com spans do Kong e do principal |
 | venda | `test_e2e_vitrine` | Anúncio replicado, ordenação por preço, vendidos sem dados do comprador, rate limiting, rotas internas fechadas |
 | venda | `test_e2e_compra` | Compra paga, pagamento cancelado, segunda compra recusada, CPF inválido, veículo inexistente |
+| venda | `test_e2e_recuperacao` | **Recuperação real**: reserva vencida desfeita pelo CronJob (compra cancelada, veículo de volta à vitrine e desbloqueado, webhook tardio sem efeito) e CPF de compra cancelada apagado depois da retenção |
 | venda | `test_e2e_caos` | **Falha do principal**: escala o principal para 0, a vitrine continua respondendo, a compra é desfeita com 503 e `Retry-After`, o circuito abre; com o principal de volta, a compra é aceita |
 
 O CD falha se faltar qualquer variável do e2e (nunca pula em silêncio) e mostra o resultado no resumo da execução. Os CDs dos dois repositórios usam uma trava comum: o teste de falha derruba o principal, então um CD nunca roda junto com o outro.
@@ -118,6 +119,6 @@ O CD falha se faltar qualquer variável do e2e (nunca pula em silêncio) e mostr
 | RNF-02 (uma compra ativa por veículo) | 10 compras simultâneas do mesmo veículo contra o MongoDB real: exatamente uma aceita |
 | RNF-04 (resiliência) | Cliente resiliente em unidade (retry, jitter, circuit breaker); saga com o principal fora; uma tentativa de compensação por requisição com chamadas lentas |
 | RNF-05 (entrega garantida) | Relay com duas réplicas disputando a outbox; ordem por agregado; backoff e `FALHOU` |
-| RNF-08 (CPF) | Documento cru no MongoDB sem o CPF em claro; logs sem CPF; resposta mascarada |
-| RNF-10 (desempenho) | k6, 8 requisições por segundo por 1 minuto, limites p95 < 300 ms e falhas < 1% |
+| RNF-08 (CPF) | Documento cru no MongoDB sem o CPF em claro; logs sem CPF; resposta mascarada; no CD, o CPF cifrado apagado pela recuperação depois da retenção |
+| RNF-10 (desempenho) | k6 a cada deploy do serviço de venda, 8 requisições por segundo por 1 minuto, limites p95 < 300 ms e falhas < 1% |
 | RNF-16 (arquitetura) | import-linter e teste de arquitetura |

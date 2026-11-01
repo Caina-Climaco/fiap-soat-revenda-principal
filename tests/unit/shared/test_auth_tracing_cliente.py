@@ -126,6 +126,8 @@ def test_tracing_ligado_instrumenta_app_banco_e_httpx(monkeypatch: pytest.Monkey
         # Uma segunda chamada (outro app no mesmo processo) reaproveita o provedor.
         assert tracing.configurar_tracing("teste", app=FastAPI())
         assert trace.get_tracer_provider() is provedor
+        # Sem app nem engine (ex.: um processo sem HTTP), só o provedor e o httpx.
+        assert tracing.configurar_tracing("teste")
     finally:
         HTTPXClientInstrumentor().uninstrument()
         provedor.shutdown()  # type: ignore[union-attr]

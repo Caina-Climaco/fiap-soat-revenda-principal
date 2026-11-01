@@ -124,3 +124,11 @@ def test_listagem_da_loja_com_filtro_e_paginacao(api: Api, cliente_http: TestCli
     assert (pagina["total"], len(pagina["itens"]), pagina["limite"]) == (2, 1, 1)
     invalido = cliente_http.get("/api/v1/veiculos", params={"limite": 101}, headers=GESTOR)
     assert invalido.status_code == 422
+
+
+@pytest.mark.parametrize("campo", ["marca", "modelo", "cor"])
+def test_caractere_de_controle_recusado_na_entrada(cliente_http: TestClient, campo: str) -> None:
+    corpo = {**VEICULO, campo: "Texto\u0000com controle"}
+    resposta = cliente_http.post("/api/v1/veiculos", json=corpo, headers=GESTOR)
+    assert resposta.status_code == 422
+    assert resposta.json()["erros"][0]["campo"] == campo

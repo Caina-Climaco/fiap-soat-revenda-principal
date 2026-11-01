@@ -82,6 +82,8 @@ def test_openapi_documenta_autorizacao_e_problem_json(api: Api) -> None:
         "/internal/v1/cobrancas",
     } <= caminhos
     assert api.http.get("/docs").status_code == 200
+    # O esquema é montado uma vez e reaproveitado
+    assert api.http.get("/openapi.json").json() == esquema
 
 
 def test_documentacao_com_prefixo_do_kong(settings: Settings, banco: BancoDeDados) -> None:
@@ -163,6 +165,12 @@ def test_logs_sem_segredos_com_eventos_e_consumidor(api: Api, logs: io.StringIO)
     ]
     eventos = {r.get("evento") for r in registros if r.get("logger") == "principal.eventos"}
     assert {"VeiculoCadastrado", "VeiculoBloqueado", "CobrancaGerada", "CobrancaPaga"} <= eventos
+    # O consumer do Kong fica no log de acesso das rotas do gestor (auditoria)
+    cadastros = [
+        r for r in registros if r.get("rota") == "/api/v1/veiculos" and r.get("status") == 201
+    ]
+    assert cadastros
+    assert {r.get("consumidor") for r in cadastros} == {"gestor"}
 
 
 def test_erro_500_registra_um_unico_stack_trace_sem_parametros_do_banco(

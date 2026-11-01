@@ -22,6 +22,15 @@ O enunciado pede um vídeo "demonstrando a solução funcionando, tanto na infra
 - [ ] Docker Desktop iniciado; os dois CDs verdes na `main`.
 - [ ] `kubectl get pods -A -l app.kubernetes.io/part-of=revenda-veiculos` com tudo `Running`.
 - [ ] Um PR pequeno pronto para o bloco 5 (por exemplo, um ajuste de texto no README), ainda não aberto.
+- [ ] Vitrine limpa: cada CD deixa veículos de marca `E2E` nos dois bancos. Limpe depois do último CD e antes de gravar o bloco 6:
+
+  ```powershell
+  cd C:\Projetos\fiap\fase4\principal
+  powershell -ExecutionPolicy Bypass -File .\scripts\windows\limpar-dados.ps1 -Simular
+  powershell -ExecutionPolicy Bypass -File .\scripts\windows\limpar-dados.ps1
+  ```
+
+  O primeiro só mostra o que seria apagado; o segundo apaga. Com `-Tudo`, o ambiente fica sem nenhum veículo, cobrança ou compra (pede confirmação).
 
 ### Chaves à mão
 
@@ -84,7 +93,7 @@ kubectl get networkpolicy -A
 uv run pytest -m "unit or integration or bdd or contrato" --cov=vendas --cov-branch --cov-fail-under=80
 ```
 
-> "São 142 testes no serviço de venda: unidade, integração, os cenários BDD da compra em Gherkin e os testes de contrato com o principal. Cobertura de 99%, acima dos 80% exigidos. O principal tem 226 testes, também com 99%."
+> "São 155 testes no serviço de venda: unidade, integração, os cenários BDD da compra em Gherkin e os testes de contrato com o principal. Cobertura de 100%, acima dos 80% exigidos. O principal tem 237 testes, também com 100%."
 
 **Tela**: SonarCloud dos dois projetos (Quality Gate e cobertura) e o resumo de cobertura de um job `testes` no GitHub Actions.
 
@@ -129,11 +138,11 @@ uv run pytest -m "unit or integration or bdd or contrato" --cov=vendas --cov-bra
 
    > "O principal confirmou a cobrança e repassou o resultado ao serviço de venda, que efetivou a compra e marcou o veículo como vendido nos dois lados."
 
-5. **Os dois bancos**, para mostrar a segregação: no PostgreSQL do principal, o veículo `VENDIDO` e a cobrança `PAGA`; no MongoDB do serviço de venda, a compra com o CPF cifrado.
+5. **Os dois bancos**, para mostrar a segregação: no PostgreSQL do principal, o veículo `VENDIDO` e a cobrança `PAGA`; no MongoDB do serviço de venda, a compra com o CPF cifrado. O comando do MongoDB não usa aspas duplas dentro do `sh -c`, porque o Windows PowerShell 5.1 não as repassa corretamente ao `kubectl`.
 
    ```powershell
    kubectl -n principal exec statefulset/principal-db -- psql -U revenda -d revenda_principal -c "select status, versao, compra_id from catalogo.veiculos order by atualizado_em desc limit 1"
-   kubectl -n vendas exec statefulset/vendas-db -- sh -c 'mongosh -u "$MONGO_APP_USUARIO" -p "$MONGO_APP_SENHA" --authenticationDatabase "$MONGO_APP_BANCO" "$MONGO_APP_BANCO" --quiet --eval "db.compras.find({}, {cpf: 1, status: 1}).sort({criada_em: -1}).limit(1)"'
+   kubectl -n vendas exec statefulset/vendas-db -- sh -c 'mongosh -u $MONGO_APP_USUARIO -p $MONGO_APP_SENHA --authenticationDatabase $MONGO_APP_BANCO $MONGO_APP_BANCO --quiet --eval ''db.compras.find({}, {cpf: 1, status: 1}).sort({criada_em: -1}).limit(1)'''
    ```
 
 6. **Jaeger**: buscar o serviço `kong`, abrir o trace do `POST /api/v1/compras` e mostrar os spans do Kong, do serviço de venda, do principal e dos dois bancos.
@@ -156,4 +165,4 @@ kubectl -n principal scale deployment revenda-principal --replicas=2
 
 **Tela**: PDF de entrega com os links.
 
-> "Resumindo: dois serviços com bancos diferentes, conversando por HTTP com saga, outbox e resiliência; testes com 99% de cobertura e contratos verificados nos dois lados; tudo entregue por PR, com deploy automático no merge e testes ponta a ponta no final. Obrigado."
+> "Resumindo: dois serviços com bancos diferentes, conversando por HTTP com saga, outbox e resiliência; testes com 100% de cobertura e contratos verificados nos dois lados; tudo entregue por PR, com deploy automático no merge e testes ponta a ponta no final. Obrigado."
