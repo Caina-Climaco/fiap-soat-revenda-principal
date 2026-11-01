@@ -123,7 +123,13 @@ def criar_router_interno_cobrancas(
             "respondem 200 com a mesma cobrança. Depois da compensação, 409."
         ),
         response_model=CobrancaResposta,
-        responses=respostas_problema(401, 409, 422),
+        responses={
+            200: {
+                "model": CobrancaResposta,
+                "description": "Repetição: a cobrança já existia (efeito false)",
+            },
+            **respostas_problema(401, 409, 422),
+        },
     )
     def gerar(uc: CasosUso, corpo: CobrancaRequisicao, response: Response) -> CobrancaResposta:
         resultado = uc.gerar.executar(corpo.compra_id, corpo.valor)
