@@ -7,7 +7,7 @@ Organização da entrega do Trabalho Substitutivo (prazo: 15/11/2026): backlog p
 | Épico | Escopo | Critério de aceite | Entregue em |
 |---|---|---|---|
 | EP-01 Modelagem | Domain Storytelling, Event Storming, contextos, agregados, saga, requisitos, ADRs | docs 01, 02, 03, 05 e ADRs publicados | principal #0 (commit inicial), venda #0 |
-| EP-02 Catálogo e pagamentos | Cadastro e edição do veículo, cobrança, webhook, passos T2, T3, T6 e compensações, outbox | RF-01, RF-02, RF-06, RF-07, RF-13; 99% de cobertura | principal #1 |
+| EP-02 Catálogo e pagamentos | Cadastro e edição do veículo, cobrança, webhook, passos T2, T3, T6 e compensações, outbox | RF-01, RF-02, RF-06, RF-07, RF-13; 100% de cobertura | principal #1 |
 | EP-03 Vitrine e compra | Réplica dos anúncios, listagens, compra por CPF, saga orquestrada, recuperação | RF-03 a RF-05, RF-08 a RF-12; BDD do fluxo | venda #1 |
 | EP-04 Plataforma | kind, Terraform, Kong, Prometheus, Grafana, Collector, Jaeger, NetworkPolicies | CD verde com e2e pelo Kong | principal #2, #3, #4 |
 | EP-05 Infra do serviço de venda | MongoDB 7, CronJob de recuperação, CD com teste de falha | CD verde com o teste de falha | venda #2, #3 |
@@ -23,7 +23,7 @@ Organização da entrega do Trabalho Substitutivo (prazo: 15/11/2026): backlog p
 ## 10.3 Definition of Done
 
 - PR com título em Conventional Commits e todos os checks obrigatórios verdes: `qualidade`, `testes`, `contrato`, `sonarcloud`, `imagem`, `infra`.
-- Cobertura do serviço acima de 80% (na prática, 99%).
+- Cobertura do serviço acima de 80% (na prática, 100%).
 - CD da `main` verde, com o e2e pelo Kong.
 - Documentação e contratos atualizados no mesmo PR.
 - Nenhum CPF em claro em respostas, logs, métricas ou traces.

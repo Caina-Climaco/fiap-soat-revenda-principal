@@ -15,7 +15,7 @@ import hmac
 from collections.abc import Callable
 from typing import Annotated
 
-from fastapi import Depends
+from fastapi import Depends, Request
 from fastapi.security import APIKeyHeader
 
 from principal.shared.errors import (
@@ -28,7 +28,7 @@ CABECALHO_CONSUMIDOR = "X-Consumer-Username"
 CABECALHO_TOKEN_SERVICO = "X-Service-Token"  # noqa: S105 - nome do header, não segredo
 
 
-def exigir_consumidor(nome: str) -> Callable[[str | None], str]:
+def exigir_consumidor(nome: str) -> Callable[..., str]:
     """Dependência que exige o consumer `nome` do Kong (401 sem consumer, 403 se outro)."""
     esquema = APIKeyHeader(
         name=CABECALHO_CONSUMIDOR,
@@ -40,9 +40,11 @@ def exigir_consumidor(nome: str) -> Callable[[str | None], str]:
         auto_error=False,
     )
 
-    def dependencia(consumidor: Annotated[str | None, Depends(esquema)]) -> str:
+    def dependencia(request: Request, consumidor: Annotated[str | None, Depends(esquema)]) -> str:
         if not consumidor:
             raise NaoAutenticadoError("Credencial ausente: use a chave do consumer no Kong.")
+        # Registrado no log de acesso (auditoria de quem cadastrou ou editou)
+        request.state.consumidor = consumidor[:60]
         if not hmac.compare_digest(consumidor.encode(), nome.encode()):
             raise AcessoNegadoError("Este consumer não tem acesso a esta operação.")
         return consumidor

@@ -56,7 +56,7 @@ Fora do escopo: front-end, pagamento real, cadastro de compradores, nota fiscal,
 | Resiliência | Falha antes do pivô desfaz a compra na hora; recuperação a cada minuto; circuit breaker | e2e `test_e2e_caos` no CD do serviço de venda |
 | Segurança e privacidade | Borda única, rotas internas fechadas, NetworkPolicies, CPF cifrado e mascarado, nada sensível em logs e traces | [07](07-seguranca-lgpd.md); e2e da borda |
 | Implantabilidade | PR obrigatório com 6 checks, CD automático com e2e, trava comum entre os CDs | [08](08-ci-cd.md) |
-| Testabilidade | Clean Architecture, relógio injetável, dublês validados por contrato; 99% de cobertura | [09](09-testes.md) |
+| Testabilidade | Clean Architecture, relógio injetável, dublês validados por contrato; 100% de cobertura | [09](09-testes.md) |
 | Observabilidade | Métricas, painéis de saga e resiliência, alertas testados, traces de ponta a ponta | [12](12-observabilidade.md) |
 
 ## 13.6 Riscos e mitigações

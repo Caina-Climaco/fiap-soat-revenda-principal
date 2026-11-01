@@ -98,7 +98,7 @@ flowchart TB
 | principal-db | PostgreSQL 16 | Schemas `catalogo`, `pagamentos`, `mensageria` | Sem dados pessoais |
 | vendas-db | MongoDB 7 | Coleções `anuncios` e `compras` | CPF cifrado (AES-256-GCM) |
 | Prometheus, Grafana | v3.14, 13.2 | Métricas, alertas e painéis | Séries temporais (2 dias) |
-| OTel Collector, Jaeger | 0.162, 2.21 | Recebe, filtra (LGPD) e armazena traces | Traces em memória |
+| OTel Collector, Jaeger | 0.162, 2.20 | Recebe, filtra (LGPD) e armazena traces | Traces em memória |
 
 ## 4.4 C4 nível 3: Componentes
 

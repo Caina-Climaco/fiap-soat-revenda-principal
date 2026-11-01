@@ -81,7 +81,9 @@ variable "otel_collector_imagem" {
 }
 
 variable "jaeger_imagem" {
+  # 2.20.0 de proposito: o 2.21 removeu a API HTTP v1 de busca (/api/services, /api/traces)
+  # que a fonte de dados Jaeger nativa do Grafana usa (jaegertracing/jaeger#9260).
   description = "Imagem do Jaeger v2 (all-in-one, armazenamento em memoria)."
   type        = string
-  default     = "jaegertracing/jaeger:2.21.0"
+  default     = "jaegertracing/jaeger:2.20.0"
 }
