@@ -9,7 +9,7 @@ Este documento descreve os contratos HTTP dos dois serviços: as rotas públicas
 | Prefixos | Públicas: `/api/v1`. Internas: `/internal/v1` (sem rota no Kong). Saúde: `/health/live`, `/health/ready` |
 | Formato | JSON em UTF-8; datas em ISO 8601 com fuso (UTC); dinheiro como string decimal com 2 casas (`"89900.00"`) |
 | Identificadores | UUID v4 |
-| Erros | `application/problem+json` (RFC 9457) com `type`, `title`, `status`, `detail`, `instance` e, quando houver, `erros` (lista de campos inválidos) |
+| Erros | `application/problem+json` (RFC 9457) com `type`, `title`, `status`, `detail`, `instance`, `request_id` e, quando houver, `erros` (lista de campos inválidos) |
 | Paginação | `limite` (padrão 20, máximo 100) e `deslocamento` (padrão 0); resposta com `itens`, `total`, `limite`, `deslocamento` |
 | Correlação | `X-Request-ID` (gerado pelo Kong se ausente) e `traceparent` (W3C), propagados em todas as chamadas |
 | Validação | Campos desconhecidos são recusados (422); mensagens em português |
@@ -186,6 +186,9 @@ O resultado é endereçado pela `compra_id` (que o principal conhece pela cobran
 | `anuncio-alterado` | 409 | venda |
 | `compra-nao-encontrada` | 404 | venda |
 | `servico-principal-indisponivel` | 503 | venda |
-| `nao-autorizado` | 401 | ambos |
+| `nao-autenticado` | 401 | principal (rotas do gestor sem consumer) |
+| `acesso-negado` | 403 | principal (consumer sem permissão) |
+| `webhook-nao-autorizado` | 401 | principal |
+| `servico-nao-autorizado` | 401 | ambos (rotas internas) |
 
-Os `type` são URIs relativas (`/problemas/<nome>`), documentadas na OpenAPI de cada serviço.
+Os `type` seguem o formato `urn:revenda:problema:<nome>` (o mesmo da Fase 3); problemas HTTP genéricos (rota inexistente, método não permitido) usam `about:blank`, como recomenda a RFC 9457.

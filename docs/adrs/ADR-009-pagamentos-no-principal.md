@@ -22,7 +22,7 @@ O enunciado pede "um endpoint (webhook) para que a entidade que processa o pagam
 - O webhook `POST /api/v1/pagamentos/webhook` recebe `{"codigo_pagamento": "...", "status": "PAGO" | "CANCELADO"}`.
   - Uma camada anticorrupção traduz esse payload em comandos do domínio.
   - O segredo `X-Webhook-Secret` é validado em tempo constante.
-- A saída de `PENDENTE` é um `UPDATE` condicional (`WHERE status = 'PENDENTE'`). Pagamento (webhook) e cancelamento (expiração, pela saga) disputam essa linha, e só um vence.
+- Toda transição lê a cobrança com trava de linha (`SELECT ... FOR UPDATE`). Pagamento (webhook) e cancelamento (expiração, pela saga) disputam essa linha; o segundo espera o primeiro terminar e encontra o estado final dele, então só um vence.
 - O resultado é repassado ao serviço de venda pela outbox ([ADR-003](ADR-003-http-com-outbox.md)).
 - Respostas do webhook:
 
@@ -36,7 +36,7 @@ O enunciado pede "um endpoint (webhook) para que a entidade que processa o pagam
 ## Consequências
 
 ### Positivas
-- O pivô da saga é uma transação local e atômica, fácil de testar com concorrência real.
+- O pivô da saga é uma transação local e atômica, testada com concorrência real (`tests/integration/test_concorrencia.py`).
 - O serviço de venda nunca fala com o mundo externo, só com o principal e com o comprador.
 
 ### Negativas

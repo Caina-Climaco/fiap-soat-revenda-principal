@@ -245,7 +245,7 @@ Invariantes: só edita em `A_VENDA`; só bloqueia em `A_VENDA` e com a versão i
 | `status` | `PENDENTE` / `PAGA` / `CANCELADA` (finais: `PAGA`, `CANCELADA`) |
 | `origem_cancelamento` | `PROCESSADOR` ou `SAGA` |
 
-Invariante central: a saída de `PENDENTE` é um `UPDATE` condicional (`WHERE status = 'PENDENTE'`). Por isso pagamento e cancelamento concorrentes nunca terminam os dois com sucesso.
+Invariante central: toda transição lê a cobrança com trava de linha (`SELECT ... FOR UPDATE`). Pagamento e cancelamento concorrentes ficam em fila no banco, e o segundo já encontra o estado final do primeiro; por isso os dois nunca terminam com sucesso.
 
 ### 2.6.3 Anuncio (Vendas, serviço de venda)
 
