@@ -95,8 +95,16 @@ Entregar dois serviços implantáveis de forma independente que, juntos, suporte
 | 01 | [Visão geral](01-visao-geral.md) | Este documento |
 | 02 | [Modelagem DDD](02-modelagem-ddd.md) | Domain Storytelling, Event Storming, linguagem ubíqua, contextos, agregados, máquinas de estado, saga e regras de negócio |
 | 03 | [Requisitos](03-requisitos.md) | Requisitos funcionais e não funcionais |
+| 04 | [Arquitetura](04-arquitetura.md) | C4 (contexto, containers, componentes), implantação e diagramas de sequência |
 | 05 | [Contratos da API](05-api.md) | Rotas públicas e internas dos dois serviços, autenticação, roteamento no Kong e catálogo de erros |
+| 06 | [Dados](06-dados.md) | Bancos, tabelas, coleções, índices, migrações e retenção |
+| 07 | [Segurança e LGPD](07-seguranca-lgpd.md) | Ameaças, controles, OWASP API Top 10 e o tratamento do CPF |
+| 08 | [CI/CD e infraestrutura](08-ci-cd.md) | Checks do CI, passos do CD, scripts do ambiente local e recursos |
+| 09 | [Testes](09-testes.md) | Pirâmide, contratos, BDD, e2e e testes de requisitos não funcionais |
+| 10 | [Plano de execução](10-plano-execucao.md) | Backlog, critérios de pronto, cronograma e riscos |
+| 11 | [Roteiro do vídeo](11-roteiro-video.md) | Blocos, preparação e falas |
+| 12 | [Observabilidade](12-observabilidade.md) | Logs, métricas, traces, painéis e alertas |
+| 13 | [DAS](13-das.md) | Folha de aprovação do desenho |
 | | [ADRs](adrs/README.md) | Decisões de arquitetura da solução |
 | | [ADRs do serviço de venda](https://github.com/Caina-Climaco/fiap-soat-revenda-vendas/tree/main/docs/adrs) | Decisões próprias do serviço de venda (MongoDB, saga, réplica, CPF) |
 
-Os demais documentos (arquitetura C4, dados, segurança e LGPD, CI/CD, testes, observabilidade, roteiro do vídeo e DAS) seguem a mesma numeração da Fase 3 e são escritos nas próximas etapas.

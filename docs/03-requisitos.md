@@ -60,4 +60,4 @@ Rotas públicas usam o prefixo `/api/v1` e passam pelo Kong. Rotas internas usam
 | RNF-15 | Implantabilidade | Cada repositório com CI e CD independentes; toda mudança por PR; deploy no merge na `main`, com e2e ao final | `main` protegida; e2e verde no job summary do CD |
 | RNF-16 | Manutenibilidade | Clean Architecture nos dois serviços; domínio sem dependência de framework | import-linter e teste de arquitetura no CI |
 | RNF-17 | Interoperabilidade | Contratos em OpenAPI; erros em `application/problem+json` (RFC 9457) | Testes de contrato e de integração |
-| RNF-18 | Eficiência de recursos | O ambiente completo cabe num PC de desenvolvimento | Soma dos *limits* de memória dos componentes permanentes ≤ 7 GiB (conta detalhada em `docs/08`) |
+| RNF-18 | Eficiência de recursos | O ambiente completo cabe num PC de desenvolvimento | Soma dos *limits* de memória dos componentes permanentes ≤ 7 GiB (conta em [08, seção 8.6](08-ci-cd.md#86-recursos)) |
