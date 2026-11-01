@@ -282,8 +282,9 @@ jobs:
           fi
           echo "OK: Grafana consulta o Prometheus (${valor} alvos up)"
           kubectl -n observabilidade rollout status deployment/otel-collector --timeout=60s
-          curl -fsS --max-time 5 "${E2E_JAEGER_URL}/api/services" >/dev/null
-          echo "OK: Collector no ar e Jaeger responde"
+          # Jaeger v2: API de consulta /api/v3 (a interna /api/services pode nao existir)
+          servicos="$(curl -fsS --max-time 5 "${E2E_JAEGER_URL}/api/v3/services" || curl -fsS --max-time 5 "${E2E_JAEGER_URL}/api/services")"
+          echo "OK: Collector no ar e Jaeger responde: ${servicos:0:200}"
 
       # Contrato com o outro repositorio: o e2e de integracao so roda com o servico de venda
       # no ar. Sem ele, o CD deste repositorio continua valido (ordem do ADR-006).
