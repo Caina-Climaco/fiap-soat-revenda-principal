@@ -1,0 +1,91 @@
+# Configuracao do Prometheus (ADR-007). Coleta por descoberta de pods do Kubernetes, so nos
+# namespaces principal, vendas (os dois servicos) e gateway (Kong), usando as anotacoes
+# prometheus.io/* dos pods. Permissao: leitura de pods (ClusterRole, observabilidade.tf).
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    ambiente: local-kind
+
+rule_files:
+  - /etc/prometheus/alertas.yml
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # Servico principal: uma serie por replica (o HPA varia de 2 a 5 pods)
+  - job_name: revenda-principal
+    kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names: [principal]
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_label_app]
+        regex: revenda-principal
+        action: keep
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        regex: "true"
+        action: keep
+      - source_labels: [__meta_kubernetes_pod_phase]
+        regex: Running
+        action: keep
+      - source_labels: [__meta_kubernetes_pod_ip, __meta_kubernetes_pod_annotation_prometheus_io_port]
+        regex: (.+);(\d+)
+        replacement: $1:$2
+        target_label: __address__
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+        regex: (.+)
+        target_label: __metrics_path__
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+
+  # Servico de venda (outro repositorio): uma serie por replica
+  - job_name: revenda-vendas
+    kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names: [vendas]
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_label_app]
+        regex: revenda-vendas
+        action: keep
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        regex: "true"
+        action: keep
+      - source_labels: [__meta_kubernetes_pod_phase]
+        regex: Running
+        action: keep
+      - source_labels: [__meta_kubernetes_pod_ip, __meta_kubernetes_pod_annotation_prometheus_io_port]
+        regex: (.+);(\d+)
+        replacement: $1:$2
+        target_label: __address__
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+        regex: (.+)
+        target_label: __metrics_path__
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+
+  # Kong: metricas do plugin prometheus no status listener (:8100/metrics)
+  - job_name: kong
+    kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names: [gateway]
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_label_app]
+        regex: kong
+        action: keep
+      - source_labels: [__meta_kubernetes_pod_phase]
+        regex: Running
+        action: keep
+      - source_labels: [__meta_kubernetes_pod_ip, __meta_kubernetes_pod_annotation_prometheus_io_port]
+        regex: (.+);(\d+)
+        replacement: $1:$2
+        target_label: __address__
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+        regex: (.+)
+        target_label: __metrics_path__
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod

@@ -1,0 +1,20 @@
+# So dentro do cluster (ClusterIP), na porta 8000: e o endereco publicado como contrato para
+# o servico de venda (PRINCIPAL_URL) e o upstream do Kong. A entrada pelo host e o Kong:
+# localhost:8080 -> NodePort 30080 -> Kong (namespace gateway) -> este Service.
+apiVersion: v1
+kind: Service
+metadata:
+  name: revenda-principal
+  labels:
+    app: revenda-principal
+    app.kubernetes.io/name: revenda-principal
+    app.kubernetes.io/part-of: revenda-veiculos
+spec:
+  type: ClusterIP
+  selector:
+    app: revenda-principal
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
+      protocol: TCP

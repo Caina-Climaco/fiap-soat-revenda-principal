@@ -1,0 +1,59 @@
+# OpenTelemetry Collector (ADR-007). Recebe OTLP do Kong e dos dois servicos, aplica a
+# segunda barreira de LGPD (remove atributos que poderiam levar CPF ou credenciais) e
+# envia os traces ao Jaeger. Os servicos ja nao colocam dado pessoal em span; o processador
+# abaixo garante isso mesmo se uma instrumentacao nova passar a registrar mais coisas.
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 80
+    spike_limit_percentage: 20
+  attributes/lgpd:
+    actions:
+      - key: cpf
+        action: delete
+      - key: comprador.cpf
+        action: delete
+      - key: http.request.body
+        action: delete
+      - key: http.request.header.apikey
+        action: delete
+      - key: http.request.header.x-webhook-secret
+        action: delete
+      - key: http.request.header.x-service-token
+        action: delete
+      - key: http.request.header.authorization
+        action: delete
+      # Qualquer chave que mencione cpf, em qualquer instrumentacao
+      - pattern: (?i).*cpf.*
+        action: delete
+  batch:
+    timeout: 2s
+
+exporters:
+  otlp/jaeger:
+    endpoint: jaeger.observabilidade.svc.cluster.local:4317
+    tls:
+      insecure: true
+
+service:
+  extensions: [health_check]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, attributes/lgpd, batch]
+      exporters: [otlp/jaeger]
+  telemetry:
+    logs:
+      level: info

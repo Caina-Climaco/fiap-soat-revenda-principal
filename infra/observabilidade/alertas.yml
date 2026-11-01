@@ -1,0 +1,123 @@
+# Regras de alerta (docs/12-observabilidade.md), avaliadas pelo Prometheus. Sem
+# Alertmanager no ambiente local: os alertas aparecem em http://localhost:9090/alerts e nos
+# paineis do Grafana. Em producao, o Alertmanager enviaria para o canal da equipe.
+groups:
+  - name: servicos
+    rules:
+      - alert: PrincipalFora
+        expr: up{job="revenda-principal"} == 0 or absent(up{job="revenda-principal"})
+        for: 2m
+        labels:
+          severidade: critica
+        annotations:
+          resumo: "Servico principal sem coleta de metricas"
+          acao: "kubectl -n principal get pods; kubectl -n principal rollout status deployment/revenda-principal"
+
+      - alert: VendasFora
+        expr: up{job="revenda-vendas"} == 0 or absent(up{job="revenda-vendas"})
+        for: 2m
+        labels:
+          severidade: critica
+        annotations:
+          resumo: "Servico de venda sem coleta de metricas"
+          acao: "kubectl -n vendas get pods; kubectl -n vendas rollout status deployment/revenda-vendas"
+
+      - alert: Erros5xxAltos
+        expr: |
+          sum by (job) (rate(revenda_http_requisicoes_total{status=~"5.."}[5m]))
+            / clamp_min(sum by (job) (rate(revenda_http_requisicoes_total[5m])), 1e-9) > 0.01
+        for: 5m
+        labels:
+          severidade: critica
+        annotations:
+          resumo: "Mais de 1% de respostas 5xx em {{ $labels.job }}"
+          acao: "Logs nivel=ERROR por request_id e o trace no Jaeger pelo trace_id; rollback se coincidir com deploy"
+
+      - alert: ListagensLentas
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(
+            revenda_http_requisicao_duracao_segundos_bucket{job="revenda-vendas",rota=~"/api/v1/veiculos/(a-venda|vendidos)"}[5m]
+          ))) > 0.3
+        for: 10m
+        labels:
+          severidade: alerta
+        annotations:
+          resumo: "p95 das listagens acima de 300 ms"
+          acao: "Ver saturacao (CPU, HPA no maximo) e os indices do MongoDB"
+
+      - alert: WebhookRecusado
+        expr: sum(rate(revenda_http_requisicoes_total{job="revenda-principal",rota="/api/v1/pagamentos/webhook",status="401"}[5m])) > 0.1
+        for: 5m
+        labels:
+          severidade: alerta
+        annotations:
+          resumo: "Webhook de pagamento recusado com frequencia"
+          acao: "Possivel tentativa de forjar pagamento; conferir origem e rotacionar o segredo"
+
+  - name: saga
+    rules:
+      # 2 = aberto (revenda_circuito_estado: 0 fechado, 1 meio-aberto, 2 aberto)
+      - alert: CircuitoAbertoParaPrincipal
+        expr: max(revenda_circuito_estado{destino="principal"}) == 2
+        for: 1m
+        labels:
+          severidade: critica
+        annotations:
+          resumo: "Circuit breaker do servico de venda para o principal esta aberto"
+          acao: "Compras falham na hora com 503 e Retry-After; verificar o servico principal"
+
+      - alert: ComprasCanceladasPorFalha
+        expr: sum(increase(revenda_compras_canceladas_total{motivo="FALHA_PROCESSAMENTO"}[15m])) > 3
+        for: 0m
+        labels:
+          severidade: alerta
+        annotations:
+          resumo: "Compras desfeitas por falha do principal nos ultimos 15 minutos"
+          acao: "Ver o painel Saga e resiliencia e os traces com compensacao no Jaeger"
+
+      - alert: OutboxAcumulando
+        expr: max(revenda_outbox_pendentes) > 50
+        for: 5m
+        labels:
+          severidade: alerta
+        annotations:
+          resumo: "Mensagens da outbox do principal acumulando"
+          acao: "O servico de venda esta fora ou recusando; ver revenda_outbox_entregas_total por resultado"
+
+      - alert: OutboxComFalhaDefinitiva
+        expr: sum(increase(revenda_outbox_entregas_total{resultado="falhou"}[15m])) > 0
+        for: 0m
+        labels:
+          severidade: critica
+        annotations:
+          resumo: "Mensagem da outbox marcada como FALHOU (tentativas esgotadas ou recusa definitiva)"
+          acao: "Consultar mensageria.outbox com status FALHOU e reprocessar apos corrigir a causa"
+
+      - alert: PagamentoAposCancelamento
+        expr: sum(increase(revenda_cobrancas_total{evento="pagamento_apos_cancelamento"}[1h])) > 0
+        for: 0m
+        labels:
+          severidade: alerta
+        annotations:
+          resumo: "Pagamento confirmado para cobranca ja cancelada"
+          acao: "Estorno manual com o processador de pagamentos (docs/02-modelagem-ddd.md)"
+
+  - name: gateway
+    rules:
+      - alert: KongFora
+        expr: up{job="kong"} == 0 or absent(up{job="kong"})
+        for: 2m
+        labels:
+          severidade: critica
+        annotations:
+          resumo: "API Gateway (Kong) sem coleta de metricas"
+          acao: "kubectl -n gateway get pods; kubectl -n gateway logs deployment/kong"
+
+      - alert: KongRejeicoesNaBorda
+        expr: sum(rate(kong_http_requests_total{code=~"401|403|429"}[5m])) > 0.5
+        for: 5m
+        labels:
+          severidade: alerta
+        annotations:
+          resumo: "Muitas requisicoes barradas no gateway (credencial invalida ou limite de taxa)"
+          acao: "Conferir origem no log do Kong; possivel abuso"

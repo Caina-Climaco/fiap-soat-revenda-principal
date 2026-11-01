@@ -1,0 +1,13 @@
+# Manifestos do servico principal (docs/08-ci-cd.md). A tag neutra "dev" e trocada no CD
+# pelo SHA do commit (revenda-principal:<sha>), sem commit.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: principal
+resources:
+  - configmap.yaml
+  - deployment.yaml
+  - service.yaml
+  - hpa.yaml
+images:
+  - name: revenda-principal
+    newTag: dev

@@ -1,0 +1,19 @@
+# Fontes de dados provisionadas: o Prometheus (metricas) e o Jaeger (traces), ambos no
+# namespace observabilidade.
+apiVersion: 1
+datasources:
+  - name: Prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus.observabilidade.svc.cluster.local:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      timeInterval: 15s
+  - name: Jaeger
+    uid: jaeger
+    type: jaeger
+    access: proxy
+    url: http://jaeger.observabilidade.svc.cluster.local:16686
+    editable: false

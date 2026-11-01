@@ -1,0 +1,11 @@
+# Job de migracao (python -m principal.migracao), aplicado pelo CD ANTES do rollout da API.
+# Autossuficiente: nao depende do ConfigMap de k8s/base (no primeiro deploy ele ainda
+# nao existe quando a migracao roda).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: principal
+resources:
+  - job.yaml
+images:
+  - name: revenda-principal
+    newTag: dev
