@@ -1,0 +1,183 @@
+[project]
+name = "principal"
+version = "0.1.0"
+description = "Serviço principal da revenda de veículos (FIAP PósTech SOAT, Fase 4): catálogo, cobrança, webhook de pagamento e outbox."
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "alembic>=1.20.0,<1.21",
+    "fastapi>=0.142.2,<0.143",
+    "httpx>=0.28.1,<0.29",
+    "opentelemetry-api>=1.30",
+    "opentelemetry-sdk>=1.30",
+    "opentelemetry-exporter-otlp-proto-http>=1.30",
+    "opentelemetry-instrumentation-fastapi>=0.51b0",
+    "opentelemetry-instrumentation-httpx>=0.51b0",
+    "opentelemetry-instrumentation-sqlalchemy>=0.51b0",
+    "prometheus-client>=0.26.0,<0.27",
+    "psycopg[binary]>=3.3.6,<3.4",
+    "pydantic>=2.13.5,<2.14",
+    "pydantic-settings>=2.15.0,<2.16",
+    "sqlalchemy>=2.1.3,<2.2",
+    "uvicorn[standard]>=0.54.0,<0.55",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.32,<0.12.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "import-linter>=2.15,<3",
+    "mypy>=2.4.0,<3",
+    "pytest>=9.1.1,<10",
+    "pytest-bdd>=8.1",
+    "pytest-cov>=7.1.0,<8",
+    "ruff>=0.16.10,<0.17",
+]
+
+# ---------------------------------------------------------------- ruff
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "UP", "N", "SIM", "RUF", "S", "C4", "PT", "RET"]
+ignore = [
+    "RUF001", # textos em português usam caracteres que o ruff considera ambíguos (ex.: travessão)
+    "RUF002",
+    "RUF003",
+    "B008",   # Depends()/Query() em parâmetros padrão é o idioma do FastAPI
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105", "S106", "S311", "PT011"]
+"migrations/**" = ["N999"]
+# Aliases de tipo Annotated[..., Depends(...)] declarados dentro das fábricas de routers.
+"src/principal/*/interfaces/router.py" = ["N806"]
+"src/principal/composicao.py" = ["N806"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["principal", "apoio"]
+
+# ---------------------------------------------------------------- mypy
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unreachable = true
+plugins = ["pydantic.mypy"]
+mypy_path = "src"
+packages = ["principal"]
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
+
+# ---------------------------------------------------------------- pytest / coverage
+[tool.pytest.ini_options]
+minversion = "9.0"
+testpaths = ["tests"]
+pythonpath = ["tests"]
+addopts = ["-m", "not e2e", "--strict-markers", "--import-mode=importlib", "-ra"]
+markers = [
+    "unit: testes de unidade (sem banco, sem rede, relógio fixo)",
+    "integration: testes de integração (PostgreSQL real via TEST_DATABASE_URL)",
+    "contrato: testes de contrato das rotas internas (contratos/)",
+    "e2e: testes ponta a ponta contra o ambiente implantado (Kong + dois serviços)",
+]
+filterwarnings = [
+    "error::pytest.PytestUnraisableExceptionWarning",
+    # Aviso do starlette sobre o cliente HTTP do TestClient (biblioteca, não código nosso).
+    "ignore:Using `httpx` with `starlette.testclient` is deprecated",
+]
+
+[tool.coverage.run]
+source = ["principal"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 80  # mesmo limiar do --cov-fail-under do CI (docs/09, secao 9.4)
+show_missing = true
+skip_covered = false
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "^\\s*\\.\\.\\.$",
+    "class .*\\(Protocol\\):",
+]
+
+# ---------------------------------------------------------------- import-linter
+# Regras da arquitetura: camadas por contexto, independência Catálogo x Pagamentos e
+# domínio sem frameworks.
+[tool.importlinter]
+root_packages = ["principal"]
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Camadas de cada contexto (interfaces | infrastructure > application > domain)"
+type = "layers"
+containers = ["principal.catalogo", "principal.pagamentos"]
+layers = ["interfaces | infrastructure", "application", "domain"]
+
+[[tool.importlinter.contracts]]
+name = "Catálogo e Pagamentos são independentes (ligados só em composicao.py)"
+type = "independence"
+modules = ["principal.catalogo", "principal.pagamentos"]
+
+[[tool.importlinter.contracts]]
+name = "Domínio usa apenas a biblioteca padrão"
+type = "forbidden"
+source_modules = ["principal.catalogo.domain", "principal.pagamentos.domain"]
+forbidden_modules = [
+    "principal.shared",
+    "principal.mensageria",
+    "principal.main",
+    "principal.composicao",
+    "fastapi",
+    "starlette",
+    "pydantic",
+    "pydantic_settings",
+    "sqlalchemy",
+    "psycopg",
+    "httpx",
+    "opentelemetry",
+    "alembic",
+]
+
+[[tool.importlinter.contracts]]
+name = "Casos de uso não dependem de frameworks nem de adaptadores"
+type = "forbidden"
+source_modules = ["principal.catalogo.application", "principal.pagamentos.application"]
+forbidden_modules = [
+    "principal.main",
+    "principal.composicao",
+    "principal.mensageria",
+    "principal.shared.auth",
+    "principal.shared.http",
+    "principal.shared.db",
+    "principal.shared.config",
+    "principal.shared.errors",
+    "principal.shared.logging",
+    "principal.shared.saude",
+    "principal.shared.cliente_servico",
+    "principal.shared.tracing",
+    "fastapi",
+    "starlette",
+    "pydantic",
+    "sqlalchemy",
+    "psycopg",
+    "httpx",
+    "opentelemetry",
+]
+
+[[tool.importlinter.contracts]]
+name = "shared e mensageria não conhecem os contextos de negócio"
+type = "forbidden"
+source_modules = ["principal.shared", "principal.mensageria"]
+forbidden_modules = [
+    "principal.catalogo",
+    "principal.pagamentos",
+    "principal.main",
+    "principal.composicao",
+]
