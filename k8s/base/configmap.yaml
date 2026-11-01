@@ -21,3 +21,6 @@ data:
   LOG_LEVEL: INFO
   # Tracing (ADR-007): OTLP/HTTP para o OpenTelemetry Collector do namespace observabilidade
   OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector.observabilidade.svc.cluster.local:4318
+  # So traces vao ao Collector; metricas sao do Prometheus (/metrics) e logs vao ao stdout
+  OTEL_METRICS_EXPORTER: none
+  OTEL_LOGS_EXPORTER: none
