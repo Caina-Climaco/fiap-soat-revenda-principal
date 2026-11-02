@@ -6,19 +6,19 @@
 |---|---|---|---|---|
 | Unidade | 149 | 71 | Domínio (Veiculo, Cobranca, Compra, CPF), casos de uso com dublês, relay, cliente resiliente, circuit breaker, cifra, configuração, arquitetura | CI (`testes`) |
 | Integração | 82 | 76 | API real com o banco real (PostgreSQL 16 / MongoDB 7): rotas, erros RFC 9457, outbox, concorrência, saga com o principal simulado, recuperação, logs sem CPF | CI (`testes`) |
-| BDD | | 4 | O fluxo da compra em Gherkin (pytest-bdd) | CI (`testes`) |
+| BDD | | 4 | Só no serviço de venda: o fluxo da compra em Gherkin (pytest-bdd) | CI (`testes`) |
 | Contrato | 6 | 4 | Rotas internas nos dois lados (seção 9.4) | CI (`contrato`) |
 | Ponta a ponta | 24 | 14 | Ambiente implantado, sempre pelo Kong | CD |
 | Carga | | 1 script | p95 das listagens (RNF-10) | CD do serviço de venda, depois do e2e; e sob demanda (`carga-listagens.ps1`) |
 
-Cobertura de linhas e ramos: **100%** nos dois serviços (mínimo exigido de 80%, `--cov-fail-under=80`), enviada ao SonarCloud e exibida no resumo de cada execução do CI. As poucas linhas excluídas com `# pragma: no cover` são verificações de exaustividade (`assert_never`) que o mypy prova inalcançáveis.
+Cobertura de linhas e ramos: **100%** nos dois serviços (mínimo exigido de 80%, `--cov-fail-under=80`), enviada ao SonarCloud e exibida no resumo de cada execução do CI. As poucas linhas excluídas com `# pragma: no cover` são ramos defensivos que o próprio desenho torna inalcançáveis, cada um com o motivo no comentário: no principal, a checagem do tipo da exceção nos handlers registrados (`errors.py`), a falha depois de a resposta já ter começado (`middleware.py`) e a cobrança que a restrição de unicidade garante existir (`pagamentos/application/casos_uso.py`); no serviço de venda, os mesmos casos de `errors.py` e `middleware.py`, as verificações de exaustividade (`assert_never`) da saga e releituras de compras que nunca são apagadas. Os pontos de entrada (`__main__`) do Job e do CronJob também ficam de fora.
 
 ## 9.2 Ferramentas
 
 | Ferramenta | Uso |
 |---|---|
-| pytest, pytest-cov | Execução e cobertura; marcadores `unit`, `integration`, `bdd`, `contrato`, `e2e` |
-| pytest-bdd | Cenários em Gherkin, em português |
+| pytest, pytest-cov | Execução e cobertura; marcadores `unit`, `integration`, `contrato`, `e2e` nos dois serviços e `bdd` só no serviço de venda |
+| pytest-bdd | Cenários em Gherkin, em português (só no serviço de venda) |
 | httpx `MockTransport` | O principal simulado no serviço de venda: a saga passa pelo cliente HTTP real, com retry e circuit breaker, sem rede |
 | jsonschema | Validação das requisições e respostas contra os contratos OpenAPI |
 | mongomock | MongoDB simulado para rodar os testes sem banco (o CI usa o MongoDB real) |

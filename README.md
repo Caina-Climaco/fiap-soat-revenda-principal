@@ -19,7 +19,7 @@ O "software principal" do enunciado: tudo o que não é listagem nem compra.
 | Cadastrar veículo (marca, modelo, ano, cor, preço) | `POST /api/v1/veiculos` | Gestor (consumer `gestor` no Kong) |
 | Editar veículo (só à venda) | `PATCH /api/v1/veiculos/{id}` | Gestor |
 | Consultar e listar veículos (visão da loja) | `GET /api/v1/veiculos[/{id}]` | Gestor |
-| Resultado do pagamento (efetuado ou cancelado), pelo código do pagamento | `POST /api/v1/pagamentos/webhook` | Processador de pagamentos |
+| Resultado do pagamento (efetuado ou cancelado), pelo código do pagamento | `POST /api/v1/pagamentos/webhook` | Processador de pagamentos, com dois headers: `apikey` (consumer `gateway-pagamento` no Kong) e `X-Webhook-Secret` |
 | Passos da saga da compra: bloquear, desbloquear e vender o veículo; gerar e cancelar a cobrança | `/internal/v1/...` | Serviço de venda |
 
 Cada cadastro ou edição publica o anúncio na vitrine do serviço de venda, e cada resultado de pagamento é repassado a ele. As duas coisas usam uma **outbox transacional**, entregue por HTTP. O desenho completo está em [docs/02, seção 2.8](docs/02-modelagem-ddd.md#28-saga-da-compra) e os contratos em [docs/05](docs/05-api.md).
@@ -74,6 +74,8 @@ Os testes de integração rodam contra PostgreSQL real e cobrem, entre outros, c
 
 Tudo roda num cluster [kind](https://kind.sigs.k8s.io/) no PC, criado e configurado por Terraform. Pré-requisitos: Windows 11 com Docker Desktop, `kind`, `kubectl` e `terraform` (`scripts/windows/01-instalar-ferramentas.ps1` instala o que faltar).
 
+> O ambiente completo (kind, Terraform e o runner do CD) foi montado para Windows 11. Em outros sistemas, os testes de unidade, integração e contrato rodam com `uv` e um PostgreSQL (seção 3); a evidência do ambiente implantado está no vídeo da entrega.
+
 ```powershell
 # 1. Plataforma e infraestrutura do principal: cluster, PostgreSQL, Kong, Prometheus,
 #    Grafana, OpenTelemetry Collector e Jaeger (-RecriarCluster se houver um cluster da Fase 3)
@@ -90,6 +92,21 @@ powershell -ExecutionPolicy Bypass -File .\scripts\windows\segredos.ps1
 
 # Apaga os veículos E2E que os testes ponta a ponta deixam nos dois bancos (-Simular só conta; -Tudo zera)
 powershell -ExecutionPolicy Bypass -File .\scripts\windows\limpar-dados.ps1
+```
+
+Exemplos pelo Kong (chaves e segredo mostrados pelo `segredos.ps1`):
+
+```bash
+# Cadastro de veículo (gestor)
+curl -X POST http://localhost:8080/api/v1/veiculos \
+  -H "apikey: <chave do gestor>" -H "Content-Type: application/json" \
+  -d '{"marca":"Fiat","modelo":"Argo","ano":2022,"cor":"Branco","preco":"72900.00"}'
+
+# Resultado do pagamento (processador): exige os dois headers
+curl -X POST http://localhost:8080/api/v1/pagamentos/webhook \
+  -H "apikey: <chave do gateway de pagamento>" -H "X-Webhook-Secret: <segredo do webhook>" \
+  -H "Content-Type: application/json" \
+  -d '{"codigo_pagamento":"<código devolvido na compra>","status":"PAGO"}'
 ```
 
 | Endereço | O quê |
