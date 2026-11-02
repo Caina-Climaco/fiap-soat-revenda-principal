@@ -318,7 +318,7 @@ Saga **orquestrada** pelo serviço de venda ([ADR-002 do serviço de venda](http
 | T5 | Efetivar compra e marcar anúncio vendido | venda | retentável | |
 | T6 | Marcar veículo vendido | principal | retentável | |
 
-**Parte síncrona.** T1 a T3 rodam dentro da requisição `POST /api/v1/compras`. Se todos passam, a resposta é 201 com o código do pagamento e o prazo. Se T2 ou T3 falham, a saga executa as compensações na ordem inversa (C2 se T2 concluiu, depois C1) e responde 409 (versão divergente) ou 503 (principal indisponível).
+**Parte síncrona.** T1 a T3 rodam dentro da requisição `POST /api/v1/compras`. Se todos passam, a resposta é 201 com o código do pagamento e o prazo. Se T2 ou T3 são recusados (versão divergente, veículo indisponível), a saga executa as compensações na ordem inversa e responde 409. Se o principal está indisponível (tentativas esgotadas), a compra é cancelada, o anúncio volta à vitrine na hora (C1 é local) e a resposta é 503; as compensações remotas (C2 e, se T3 começou, C3) ficam com a recuperação, para o comprador não esperar outra rodada de tentativas contra o principal que acabou de falhar.
 
 **Parte assíncrona.** T4 acontece quando o processador chama o webhook. Pagamentos grava `PAGA` e o repasse na outbox, na mesma transação, e entrega `PAGO` ao serviço de venda por HTTP até receber confirmação. O serviço de venda executa T5 e T6. T6 é retentável: se o principal estiver fora, a recuperação de sagas repete até concluir.
 

@@ -27,7 +27,8 @@ No segundo caso, gravar no banco e depois chamar HTTP abre a janela do *dual wri
 - **Notificações**: o principal grava a mudança de negócio e uma linha na tabela `mensageria.outbox` **na mesma transação**. Um *relay* em segundo plano no próprio principal lê as linhas pendentes em ordem e as entrega por HTTP ao serviço de venda, com retry e backoff, marcando como entregues só após resposta 2xx.
 - **Ordem por agregado**: o relay entrega as mensagens de um mesmo `veiculo_id` (ou da mesma cobrança) em ordem; mensagens de agregados diferentes podem seguir em paralelo.
 - **Idempotência no receptor**: a réplica de anúncio só aplica versão maior que a atual; o resultado do pagamento é ignorado se a compra já estiver no estado final correspondente.
-- Mensagens que esgotam as tentativas ficam com status `FALHOU`, contam numa métrica e disparam alerta; podem ser reprocessadas.
+- Erro de rede e 5xx são repetidos sem limite de tentativas até o **prazo de entrega** da mensagem (padrão 24 h): uma queda longa do serviço de venda não perde réplicas nem resultados de pagamento. Só ficam com status `FALHOU` as mensagens recusadas com um 4xx definitivo (erro de contrato, que repetir não resolve) ou que passam do prazo; elas contam numa métrica, disparam alerta e são reprocessadas com `python -m principal.outbox reprocessar [ID ...]` depois de corrigida a causa. O reprocessamento renova o `criado_em` da mensagem: o prazo de entrega e a métrica `revenda_outbox_atraso_segundos` passam a contar a partir dele (sem isso, a mensagem que falhou por prazo vencido voltaria já vencida). Escolhemos um teto de tempo, e não de tentativas, porque o backoff chega a 60 s: 20 tentativas cobriam só cerca de 15 minutos de indisponibilidade.
+- Mensagens entregues são apagadas 7 dias depois, por uma limpeza que roda no laço do próprio relay a cada hora (sem outro CronJob).
 
 ## Consequências
 

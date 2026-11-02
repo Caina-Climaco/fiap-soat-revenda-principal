@@ -90,8 +90,19 @@ groups:
         labels:
           severidade: critica
         annotations:
-          resumo: "Mensagem da outbox marcada como FALHOU (tentativas esgotadas ou recusa definitiva)"
-          acao: "Consultar mensageria.outbox com status FALHOU e reprocessar apos corrigir a causa"
+          resumo: "Mensagem da outbox marcada como FALHOU (prazo de entrega vencido ou recusa definitiva)"
+          acao: "Corrigir a causa e reprocessar: kubectl -n principal exec deployment/revenda-principal -- python -m principal.outbox reprocessar"
+
+      # Calculado pela recuperacao de sagas e exposto pelo servico de venda a cada coleta:
+      # compras com passo ou compensacao pendente sem nenhuma mudanca ha mais de 5 minutos.
+      - alert: SagasParadas
+        expr: max(revenda_sagas_paradas{job="revenda-vendas"}) > 0
+        for: 5m
+        labels:
+          severidade: alerta
+        annotations:
+          resumo: "Compras com saga pendente e sem progresso ha mais de 5 minutos"
+          acao: "Ver o CronJob de recuperacao (kubectl -n vendas get jobs) e o circuito para o principal"
 
       - alert: PagamentoAposCancelamento
         expr: sum(increase(revenda_cobrancas_total{evento="pagamento_apos_cancelamento"}[1h])) > 0

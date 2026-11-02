@@ -119,6 +119,9 @@ def test_t3_cobranca_idempotente(api: Api) -> None:
     assert repetida.status_code == 200
     assert repetida.json()["codigo_pagamento"] == corpo["codigo_pagamento"]
     assert repetida.json()["efeito"] is False
+    divergente = api.gerar_cobranca(compra, "1.00")
+    assert divergente.status_code == 409
+    assert tipo_problema(divergente) == "cobranca-divergente"
 
 
 @pytest.mark.parametrize("valor", ["0", "-5", "1.001", "abc"])

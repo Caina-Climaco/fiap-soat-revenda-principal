@@ -29,6 +29,7 @@ Os traces também são consultáveis no Grafana (Explore, fonte **Jaeger**). Ess
 | `revenda_saga_passos_total{passo,resultado}` | venda | T1 a T6 e C1 a C3 |
 | `revenda_chamadas_participante_total{destino,resultado}` | venda | sucesso, recusa, nova tentativa, falha, circuito aberto |
 | `revenda_circuito_estado{destino}` | venda | 0 fechado, 1 meio-aberto, 2 aberto |
+| `revenda_sagas_paradas` | venda | compras com trabalho pendente e sem progresso há mais de 5 minutos (calculado a cada coleta) |
 
 ## 12.3 Painéis
 
@@ -48,6 +49,7 @@ Avaliados pelo Prometheus (`infra/observabilidade/alertas.yml`, com testes em `a
 | `CircuitoAbertoParaPrincipal` | circuito aberto por mais de 1 minuto |
 | `ComprasCanceladasPorFalha` | mais de 3 compras desfeitas por falha em 15 minutos |
 | `OutboxAcumulando` | mais de 50 mensagens pendentes por 5 minutos |
-| `OutboxComFalhaDefinitiva` | mensagem marcada como `FALHOU` |
+| `OutboxComFalhaDefinitiva` | mensagem marcada como `FALHOU` (recusa definitiva ou prazo de entrega vencido); reprocessar com `python -m principal.outbox reprocessar` |
+| `SagasParadas` | compra com passo ou compensação pendente sem progresso há mais de 5 minutos, por 5 minutos (`revenda_sagas_paradas`, calculado pela recuperação de sagas) |
 | `PagamentoAposCancelamento` | pagamento confirmado para cobrança cancelada (estorno manual) |
 | `KongRejeicoesNaBorda` | muitas respostas 401, 403 ou 429 no gateway |

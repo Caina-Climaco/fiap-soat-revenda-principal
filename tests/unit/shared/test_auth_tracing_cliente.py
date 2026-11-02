@@ -112,6 +112,22 @@ def test_cliente_converte_falha_de_transporte() -> None:
         cliente.enviar("POST", "/x", {})
 
 
+@pytest.fixture
+def provedor_global_isolado(monkeypatch: pytest.MonkeyPatch) -> None:
+    """O provedor de traces do OpenTelemetry é global e só pode ser definido uma vez por
+    processo. O monkeypatch zera esse estado só durante o teste e o restaura no fim, então
+    o provedor criado aqui não vaza para os outros testes (item 4.8 da revisão)."""
+    from opentelemetry import trace
+    from opentelemetry.util._once import Once
+
+    # Atributos privados do opentelemetry-api (não há API pública para desfazer o
+    # set_tracer_provider); se uma atualização da biblioteca os renomear, este teste quebra
+    # na hora e aponta aqui.
+    monkeypatch.setattr(trace, "_TRACER_PROVIDER", None)
+    monkeypatch.setattr(trace, "_TRACER_PROVIDER_SET_ONCE", Once())
+
+
+@pytest.mark.usefixtures("provedor_global_isolado")
 def test_tracing_ligado_instrumenta_app_banco_e_httpx(monkeypatch: pytest.MonkeyPatch) -> None:
     from opentelemetry import trace
     from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
@@ -131,3 +147,10 @@ def test_tracing_ligado_instrumenta_app_banco_e_httpx(monkeypatch: pytest.Monkey
     finally:
         HTTPXClientInstrumentor().uninstrument()
         provedor.shutdown()  # type: ignore[union-attr]
+
+
+def test_provedor_global_volta_ao_padrao_depois_do_teste_de_tracing() -> None:
+    """Roda depois do teste acima (mesma ordem do arquivo): o global não ficou com o SDK."""
+    from opentelemetry import trace
+
+    assert not isinstance(trace.get_tracer_provider(), TracerProvider)

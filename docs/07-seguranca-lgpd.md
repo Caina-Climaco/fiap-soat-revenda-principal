@@ -32,7 +32,7 @@ flowchart LR
 | **T**ampering | Alterar preço ou versão entre a vitrine e a compra | O comprador envia a versão vista; T1 e T2 conferem; divergência dá 409 `anuncio-alterado` |
 | **T**ampering | Reprocessar um passo da saga depois da compensação | Regra contra ressurreição (`catalogo.compensacoes`): 409 `compra-compensada` |
 | **R**epudiation | Contestar quem cadastrou, editou ou pagou | Logs JSON com `request_id`, consumer e `trace_id`; eventos de domínio registrados |
-| **I**nformation disclosure | CPF em resposta, log, métrica ou trace | CPF mascarado nas respostas, nunca logado; Collector remove atributos com `cpf`; teste que inspeciona os logs |
+| **I**nformation disclosure | CPF em resposta, log, métrica ou trace | CPF mascarado nas respostas, nunca logado; o formatador de log do serviço de venda mascara qualquer sequência com formato de CPF; Collector remove atributos com `cpf`; testes que inspecionam os logs |
 | **I**nformation disclosure | Enumerar compras por CPF | Não existe busca por CPF; a consulta é pelo identificador da compra (UUID v4, não sequencial) |
 | **D**enial of service | Esgotar a API ou travar a compra | Rate limiting no Kong (600/min geral, 60/min no POST de compra); limite de payload de 1 MB; HPA; circuit breaker e bulkhead entre os serviços |
 | **E**levation of privilege | Container comprometido ganhar o nó | Usuário não root, raiz somente leitura, `drop ALL`, seccomp `RuntimeDefault`, sem token de service account |
@@ -83,7 +83,7 @@ No ambiente local o tráfego é HTTP dentro do cluster e na porta do Kong em `12
 
 ### 7.3.6 Logs, auditoria e tracing
 
-Logs JSON com `request_id`, `trace_id`, consumer e rota; sem corpo de requisição, sem CPF, sem segredos (teste automatizado nos dois serviços). Os spans do OpenTelemetry não recebem corpo nem parâmetros de SQL, e o Collector remove atributos com `cpf`, `apikey`, `X-Webhook-Secret` e `X-Service-Token` como segunda barreira.
+Logs JSON com `request_id`, `trace_id`, consumer e rota; sem corpo de requisição, sem CPF, sem segredos (teste automatizado nos dois serviços). Os spans do OpenTelemetry não recebem corpo nem parâmetros de SQL, e o Collector remove atributos com `cpf`, `apikey`, `X-Webhook-Secret` e `X-Service-Token` como segunda barreira. No serviço de venda, o formatador de log é outra barreira: mascara qualquer sequência com formato de CPF (11 dígitos, com ou sem pontuação) na linha inteira, inclusive em tracebacks.
 
 ## 7.4 OWASP API Security Top 10 (2023)
 

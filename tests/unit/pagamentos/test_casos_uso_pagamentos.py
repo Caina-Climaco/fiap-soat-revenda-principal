@@ -16,6 +16,7 @@ from principal.pagamentos.application.casos_uso import (
 )
 from principal.pagamentos.domain.cobranca import Cobranca, OrigemCancelamento, StatusCobranca
 from principal.pagamentos.domain.erros import (
+    CobrancaDivergenteError,
     CobrancaJaPagaError,
     CobrancaNaoEncontradaError,
     CompraCompensadaError,
@@ -46,11 +47,27 @@ def cenario() -> Cenario:
 def test_gerar_e_idempotente_pela_compra(cenario: Cenario) -> None:
     compra = uuid4()
     primeira = cenario.gerar.executar(compra, PRECO)
-    segunda = cenario.gerar.executar(compra, Decimal("1.00"))
+    segunda = cenario.gerar.executar(compra, PRECO)
     assert primeira.efeito is True
     assert segunda.efeito is False
     assert segunda.cobranca.codigo == primeira.cobranca.codigo
     assert cenario.uow.nomes == ["CobrancaGerada"]
+
+
+def test_gerar_repetido_com_outro_valor_e_recusado(cenario: Cenario) -> None:
+    """Item 4.3 da revisão: não devolve a cobrança antiga como se fosse a pedida."""
+    compra = uuid4()
+    cenario.gerar.executar(compra, PRECO)
+    with pytest.raises(CobrancaDivergenteError):
+        cenario.gerar.executar(compra, Decimal("1.00"))
+    assert cenario.uow.nomes == ["CobrancaGerada"]
+
+
+def test_gerar_perde_a_corrida_para_outro_valor_e_recusado(cenario: Cenario) -> None:
+    compra = uuid4()
+    cenario.repo.concorrente = Cobranca.gerar(compra, Decimal("1.00"), AS_10H)
+    with pytest.raises(CobrancaDivergenteError):
+        cenario.gerar.executar(compra, PRECO)
 
 
 def test_gerar_perde_a_corrida_e_devolve_a_cobranca_da_outra_tentativa(cenario: Cenario) -> None:

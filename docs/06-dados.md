@@ -116,7 +116,7 @@ Uma linha por compra compensada (C2). É a **regra contra ressurreição**: um T
 | `tipo`, `chave` | Tipo da mensagem e agregado; mensagens da mesma chave saem na ordem do `id` |
 | `metodo`, `caminho`, `corpo` | A requisição HTTP que o relay vai fazer ao serviço de venda |
 | `contexto_trace` | `traceparent` do momento da gravação: a entrega continua o mesmo trace |
-| `status`, `tentativas`, `proxima_tentativa`, `ultimo_erro` | Backoff exponencial até 60 s; `FALHOU` após 20 tentativas ou erro definitivo (4xx que não seja 404, 408, 425 ou 429; o 409 de resultado divergente também é definitivo) |
+| `status`, `tentativas`, `proxima_tentativa`, `ultimo_erro` | Backoff exponencial até 60 s, sem limite de tentativas para rede e 5xx; `FALHOU` só por erro definitivo (4xx que não seja 404, 408, 425 ou 429; o 409 de resultado divergente também é definitivo) ou quando a mensagem passa do prazo de entrega (`OUTBOX_PRAZO_ENTREGA_HORAS`, padrão 24 h). `python -m principal.outbox reprocessar` devolve as `FALHOU` a `PENDENTE` depois de corrigida a causa, com o prazo recontado a partir do reprocessamento |
 
 Índices parciais `WHERE status = 'PENDENTE'`: `(proxima_tentativa, id)` para o relay e `(chave, id)` para garantir a ordem por agregado.
 
@@ -166,7 +166,8 @@ Não há transação entre documentos (o MongoDB roda sem replica set, [ADR-001 
 |---|---|
 | CPF de compra efetivada | Mantido (prova da venda e emissão de documentos) |
 | CPF de compra cancelada | Apagado pela recuperação após 90 dias (`RETENCAO_CPF_DIAS`); o campo mascarado vai junto |
-| Outbox entregue | Mantida no ambiente local; em produção, expurgo periódico |
+| Outbox entregue | Apagada 7 dias depois da entrega (`OUTBOX_RETENCAO_DIAS`), pela limpeza periódica no laço do relay; pendentes e `FALHOU` nunca são apagadas |
+| Marcas da regra contra ressurreição (`catalogo.compensacoes`) | Apagadas depois de 30 dias (`COMPENSACOES_RETENCAO_DIAS`), pela mesma limpeza: nenhum passo da saga chega com dias de atraso |
 
 Detalhes em [07, seção 5](07-seguranca-lgpd.md#75-lgpd).
 

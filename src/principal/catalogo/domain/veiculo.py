@@ -136,17 +136,19 @@ class Veiculo:
     ) -> bool:
         """Edição parcial (merge). Só com o veículo à venda (RN-02).
 
+        Os dados são validados antes do estado: um pedido inválido recebe 422 (corrigível
+        pelo cliente) mesmo com o veículo reservado, em vez de um 409 que esconde o erro.
         Devolve False, sem incrementar a versão nem gerar evento, quando todos os valores
         informados já são os atuais (edição sem mudança real).
         """
-        if self.status is not StatusVeiculo.A_VENDA:
-            raise VeiculoNaoEditavelError(self.id, self.status)
         dados = validar_dados(
             marca=marca, modelo=modelo, ano=ano, cor=cor, preco=preco, ano_corrente=agora.year
         )
         informados = dados.informados()
         if not informados:
             raise DadosVeiculoInvalidosError([("corpo", "informe ao menos um campo para editar")])
+        if self.status is not StatusVeiculo.A_VENDA:
+            raise VeiculoNaoEditavelError(self.id, self.status)
         alterados = {n: v for n, v in informados.items() if getattr(self, n) != v}
         if not alterados:
             return False

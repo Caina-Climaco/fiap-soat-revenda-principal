@@ -58,7 +58,11 @@ class Settings(DatabaseSettings):
     outbox_relay_ativo: bool = True
     outbox_intervalo_segundos: float = Field(default=0.5, gt=0, le=60)
     outbox_lote: int = Field(default=50, ge=1, le=1000)
-    outbox_max_tentativas: int = Field(default=20, ge=1, le=1000)
+    # Rede e 5xx são repetidos até este prazo (ADR-003); depois, FALHOU e reprocessamento.
+    outbox_prazo_entrega_horas: float = Field(default=24, gt=0, le=720)
+    # Limpeza periódica no laço do relay (principal/limpeza.py)
+    outbox_retencao_dias: int = Field(default=7, ge=1, le=365)
+    compensacoes_retencao_dias: int = Field(default=30, ge=7, le=365)
     outbox_timeout_segundos: float = Field(default=2.0, gt=0, le=30)
 
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"

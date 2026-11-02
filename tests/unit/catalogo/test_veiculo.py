@@ -114,6 +114,18 @@ COMPRA = uuid4()
 OUTRA = uuid4()
 
 
+def test_dados_invalidos_respondem_422_mesmo_com_o_veiculo_bloqueado() -> None:
+    """Item 4.4 da revisão: validação antes do estado (422 antes de 409)."""
+    veiculo = novo()
+    veiculo.bloquear(COMPRA, 1, AGORA)
+    with pytest.raises(DadosVeiculoInvalidosError):
+        veiculo.editar(agora=AGORA, preco="-1")
+    with pytest.raises(DadosVeiculoInvalidosError):
+        veiculo.editar(agora=AGORA)  # nenhum campo
+    with pytest.raises(VeiculoNaoEditavelError):
+        veiculo.editar(agora=AGORA, preco="90000.00")  # dados válidos: aí sim, 409
+
+
 def test_bloqueio_impede_edicao_e_nao_muda_a_versao() -> None:
     veiculo = novo(preco="95000.00")
     veiculo.coletar_eventos()
