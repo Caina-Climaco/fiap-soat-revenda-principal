@@ -139,3 +139,13 @@ class EntregadorFalso:
 
 
 FALHA_DE_REDE = FalhaDeRedeError("ConnectError")
+
+
+class RelogioMonotonico:
+    """Substituto de `time.monotonic` que só anda quando o teste manda."""
+
+    def __init__(self, instante: float = 0.0) -> None:
+        self.instante = instante
+
+    def __call__(self) -> float:
+        return self.instante

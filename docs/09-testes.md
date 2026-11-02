@@ -4,8 +4,8 @@
 
 | Nível | Principal | Venda | O que cobre | Onde roda |
 |---|---|---|---|---|
-| Unidade | 160 | 79 | Domínio (Veiculo, Cobranca, Compra, CPF), casos de uso com dublês, relay, cliente resiliente, circuit breaker, cifra, configuração, arquitetura | CI (`testes`) |
-| Integração | 88 | 87 | API real com o banco real (PostgreSQL 16 / MongoDB 7): rotas, erros RFC 9457, outbox, concorrência, saga com o principal simulado, recuperação, logs sem CPF | CI (`testes`) |
+| Unidade | 163 | 80 | Domínio (Veiculo, Cobranca, Compra, CPF), casos de uso com dublês, relay, cliente resiliente, circuit breaker, cifra, configuração, arquitetura | CI (`testes`) |
+| Integração | 88 | 88 | API real com o banco real (PostgreSQL 16 / MongoDB 7): rotas, erros RFC 9457, outbox, concorrência, saga com o principal simulado, recuperação, logs sem CPF | CI (`testes`) |
 | BDD | | 4 | Só no serviço de venda: o fluxo da compra em Gherkin (pytest-bdd) | CI (`testes`) |
 | Contrato | 6 | 5 | Rotas internas nos dois lados (seção 9.4); 4 do principal e 3 do serviço de venda também são de integração (usam o banco real) e já entram na linha de cima | CI (`contrato`) |
 | Ponta a ponta | 24 | 14 | Ambiente implantado, sempre pelo Kong | CD |

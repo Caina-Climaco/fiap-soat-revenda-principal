@@ -58,3 +58,16 @@ class ValorInvalidoError(PagamentosError):
     def __init__(self) -> None:
         self.erros = [("valor", "deve ser maior que zero, com até 2 casas decimais")]
         super().__init__("O valor da cobrança é inválido.")
+
+
+class CodigoPagamentoEmUsoError(RuntimeError):
+    """O código sorteado colidiu com um existente em todas as tentativas.
+
+    Não herda de PagamentosError de propósito: com 48 bits aleatórios, duas colisões
+    seguidas indicam defeito (no gerador ou nos dados), e não uma regra de negócio; a API
+    responde 500, como em qualquer falha inesperada.
+    """
+
+    def __init__(self, compra_id: UUID) -> None:
+        self.compra_id = compra_id
+        super().__init__(f"Nenhum código de pagamento livre para a compra {compra_id}.")

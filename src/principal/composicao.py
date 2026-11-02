@@ -10,6 +10,7 @@ entram na mesma transação (ADR-003).
 # anotações forem avaliadas na definição da função (com o escopo local).
 
 from collections.abc import Callable, Iterator
+from datetime import datetime, timedelta
 from typing import Annotated
 
 from fastapi import Depends
@@ -33,7 +34,8 @@ from principal.catalogo.domain.eventos import (
     VeiculoVendido,
 )
 from principal.catalogo.infrastructure.repositorio_sql import SqlVeiculoRepository
-from principal.mensageria.outbox_sql import OutboxSql
+from principal.limpeza import LimpezaPeriodica
+from principal.mensageria.outbox_sql import OutboxSql, apagar_entregues_anteriores
 from principal.pagamentos.application.casos_uso import (
     CancelarCobrancaDaCompra,
     CasosUsoPagamentos,
@@ -105,6 +107,28 @@ class Composicao:
             cancelar=CancelarCobrancaDaCompra(*argumentos),
             registrar_resultado=RegistrarResultadoPagamento(*argumentos),
         )
+
+
+def nova_limpeza(
+    banco: BancoDeDados,
+    relogio: Clock,
+    *,
+    retencao_outbox: timedelta = timedelta(days=7),
+    retencao_compensacoes: timedelta = timedelta(days=30),
+) -> LimpezaPeriodica:
+    """Limpeza periódica com a retenção de cada dono: outbox (mensageria) e marcas (catálogo)."""
+
+    def apagar_compensacoes(sessao: Session, limite: datetime) -> int:
+        return SqlVeiculoRepository(sessao).apagar_compensacoes_anteriores(limite)
+
+    return LimpezaPeriodica(
+        banco,
+        relogio,
+        apagar_entregues=apagar_entregues_anteriores,
+        apagar_compensacoes=apagar_compensacoes,
+        retencao_outbox=retencao_outbox,
+        retencao_compensacoes=retencao_compensacoes,
+    )
 
 
 def acoes_metricas_negocio(metricas: Metricas) -> dict[str, AcaoMetrica]:

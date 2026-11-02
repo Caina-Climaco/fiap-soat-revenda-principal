@@ -8,10 +8,8 @@ import pytest
 
 from apoio.cenario import AS_10H, PRECO
 from principal.pagamentos.domain.cobranca import Cobranca, CodigoPagamento
-from principal.pagamentos.infrastructure.repositorio_sql import (
-    CodigoPagamentoEmUsoError,
-    SqlCobrancaRepository,
-)
+from principal.pagamentos.domain.erros import CodigoPagamentoEmUsoError
+from principal.pagamentos.infrastructure.repositorio_sql import SqlCobrancaRepository
 from principal.shared.db import BancoDeDados
 
 REPETIDO = CodigoPagamento("PAG-000000000001")
@@ -24,7 +22,7 @@ def _com_codigo(codigo: CodigoPagamento) -> Cobranca:
 
 
 def test_codigo_repetido_e_sorteado_de_novo(banco: BancoDeDados) -> None:
-    """Item 4.5 da revisão: colisão em uq_cobrancas_codigo não vira erro 500."""
+    """Colisão em uq_cobrancas_codigo não vira erro 500."""
     with banco.nova_sessao() as sessao:
         repo = SqlCobrancaRepository(sessao)
         assert repo.adicionar_se_ausente(_com_codigo(REPETIDO)) is True

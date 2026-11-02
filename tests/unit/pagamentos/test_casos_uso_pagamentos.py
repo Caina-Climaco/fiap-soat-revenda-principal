@@ -55,7 +55,7 @@ def test_gerar_e_idempotente_pela_compra(cenario: Cenario) -> None:
 
 
 def test_gerar_repetido_com_outro_valor_e_recusado(cenario: Cenario) -> None:
-    """Item 4.3 da revisão: não devolve a cobrança antiga como se fosse a pedida."""
+    """T3 idempotente (ADR-009): não devolve a cobrança antiga como se fosse a pedida."""
     compra = uuid4()
     cenario.gerar.executar(compra, PRECO)
     with pytest.raises(CobrancaDivergenteError):

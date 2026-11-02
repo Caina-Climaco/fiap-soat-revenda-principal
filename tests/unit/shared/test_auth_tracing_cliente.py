@@ -116,7 +116,7 @@ def test_cliente_converte_falha_de_transporte() -> None:
 def provedor_global_isolado(monkeypatch: pytest.MonkeyPatch) -> None:
     """O provedor de traces do OpenTelemetry é global e só pode ser definido uma vez por
     processo. O monkeypatch zera esse estado só durante o teste e o restaura no fim, então
-    o provedor criado aqui não vaza para os outros testes (item 4.8 da revisão)."""
+    o provedor criado aqui não vaza para os outros testes."""
     from opentelemetry import trace
     from opentelemetry.util._once import Once
 

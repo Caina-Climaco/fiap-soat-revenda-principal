@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
-from sqlalchemy import insert
+from datetime import datetime
+from typing import Any, cast
+
+from sqlalchemy import CursorResult, delete, insert
 from sqlalchemy.orm import Session
 
+from principal.mensageria.relay import ENTREGUE
 from principal.mensageria.tabelas import outbox
 from principal.shared.clock import Clock
 from principal.shared.outbox import MensagemSaida
@@ -31,3 +35,15 @@ class OutboxSql:
                 criado_em=agora,
             )
         )
+
+
+def apagar_entregues_anteriores(sessao: Session, limite: datetime) -> int:
+    """Retenção da outbox: apaga as mensagens ENTREGUE antes do limite (nunca as pendentes
+    nem as FALHOU, que esperam reprocessamento manual)."""
+    resultado = cast(
+        CursorResult[Any],
+        sessao.execute(
+            delete(outbox).where(outbox.c.status == ENTREGUE, outbox.c.entregue_em < limite)
+        ),
+    )
+    return int(resultado.rowcount)

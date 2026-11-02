@@ -189,3 +189,15 @@ forbidden_modules = [
     "principal.main",
     "principal.composicao",
 ]
+
+[[tool.importlinter.contracts]]
+name = "Limpeza não conhece as tabelas dos contextos (ligada em composicao.py)"
+type = "forbidden"
+source_modules = ["principal.limpeza"]
+forbidden_modules = [
+    "principal.catalogo",
+    "principal.pagamentos",
+    "principal.mensageria",
+    "principal.main",
+    "principal.composicao",
+]

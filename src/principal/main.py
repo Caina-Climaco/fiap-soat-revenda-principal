@@ -16,8 +16,7 @@ from principal.catalogo.interfaces.router import (
     criar_router_interno_veiculos,
     criar_router_veiculos,
 )
-from principal.composicao import Composicao, acoes_metricas_negocio
-from principal.limpeza import LimpezaPeriodica
+from principal.composicao import Composicao, acoes_metricas_negocio, nova_limpeza
 from principal.mensageria.relay import Entregador, ExecutorRelay, RelayOutbox
 from principal.pagamentos.interfaces.router import (
     PROBLEMAS_PAGAMENTOS,
@@ -102,7 +101,7 @@ def criar_app(
         prazo_entrega=timedelta(hours=settings.outbox_prazo_entrega_horas),
         metricas=metricas,
     )
-    limpeza = LimpezaPeriodica(
+    limpeza = nova_limpeza(
         banco,
         relogio,
         retencao_outbox=timedelta(days=settings.outbox_retencao_dias),
