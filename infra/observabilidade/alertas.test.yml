@@ -102,8 +102,8 @@ tests:
           - exp_labels:
               severidade: critica
             exp_annotations:
-              resumo: "Mensagem da outbox marcada como FALHOU (tentativas esgotadas ou recusa definitiva)"
-              acao: "Consultar mensageria.outbox com status FALHOU e reprocessar apos corrigir a causa"
+              resumo: "Mensagem da outbox marcada como FALHOU (prazo de entrega vencido ou recusa definitiva)"
+              acao: "Corrigir a causa e reprocessar: kubectl -n principal exec deployment/revenda-principal -- python -m principal.outbox reprocessar"
       - eval_time: 3m
         alertname: OutboxAcumulando
         exp_alerts: []
@@ -115,6 +115,24 @@ tests:
             exp_annotations:
               resumo: "Mensagens da outbox do principal acumulando"
               acao: "O servico de venda esta fora ou recusando; ver revenda_outbox_entregas_total por resultado"
+
+  # Saga parada: so alerta depois de 5 minutos com o valor acima de zero
+  - interval: 1m
+    input_series:
+      - series: 'revenda_sagas_paradas{job="revenda-vendas", pod="revenda-vendas-1"}'
+        values: "0 1 1 1 1 1 1 1 1 1"
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: SagasParadas
+        exp_alerts: []
+      - eval_time: 8m
+        alertname: SagasParadas
+        exp_alerts:
+          - exp_labels:
+              severidade: alerta
+            exp_annotations:
+              resumo: "Compras com saga pendente e sem progresso ha mais de 5 minutos"
+              acao: "Ver o CronJob de recuperacao (kubectl -n vendas get jobs) e o circuito para o principal"
 
   # Trafego saudavel: nenhum alerta de erro, saga ou gateway
   - interval: 1m

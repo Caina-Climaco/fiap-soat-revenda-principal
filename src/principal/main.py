@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from datetime import timedelta
 from typing import Any
 
 from fastapi import APIRouter, FastAPI
@@ -16,6 +17,7 @@ from principal.catalogo.interfaces.router import (
     criar_router_veiculos,
 )
 from principal.composicao import Composicao, acoes_metricas_negocio
+from principal.limpeza import LimpezaPeriodica
 from principal.mensageria.relay import Entregador, ExecutorRelay, RelayOutbox
 from principal.pagamentos.interfaces.router import (
     PROBLEMAS_PAGAMENTOS,
@@ -97,10 +99,16 @@ def criar_app(
         entregador,
         relogio,
         lote=settings.outbox_lote,
-        max_tentativas=settings.outbox_max_tentativas,
+        prazo_entrega=timedelta(hours=settings.outbox_prazo_entrega_horas),
         metricas=metricas,
     )
-    executor = ExecutorRelay(relay, settings.outbox_intervalo_segundos)
+    limpeza = LimpezaPeriodica(
+        banco,
+        relogio,
+        retencao_outbox=timedelta(days=settings.outbox_retencao_dias),
+        retencao_compensacoes=timedelta(days=settings.compensacoes_retencao_dias),
+    )
+    executor = ExecutorRelay(relay, settings.outbox_intervalo_segundos, limpeza=limpeza.executar)
 
     @asynccontextmanager
     async def ciclo_de_vida(_app: FastAPI) -> AsyncIterator[None]:

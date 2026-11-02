@@ -9,6 +9,7 @@ from uuid import UUID
 
 from principal.pagamentos.domain.cobranca import Cobranca, OrigemCancelamento, StatusCobranca
 from principal.pagamentos.domain.erros import (
+    CobrancaDivergenteError,
     CobrancaNaoEncontradaError,
     CompraCompensadaError,
     PagamentoAposCancelamentoError,
@@ -56,10 +57,14 @@ class _CasoDeUso:
 
 
 class GerarCobranca(_CasoDeUso):
-    """T3 da saga: uma cobrança por compra; repetir devolve a mesma cobrança."""
+    """T3 da saga: uma cobrança por compra; repetir (mesmo valor) devolve a mesma cobrança.
+
+    Repetir com outro valor é recusado (409 cobranca-divergente): devolver a cobrança antiga
+    esconderia do serviço de venda que o valor cobrado não é o que ele pediu.
+    """
 
     def executar(self, compra_id: UUID, valor: Decimal) -> ResultadoCobranca:
-        existente = self._existente(compra_id)
+        existente = self._existente(compra_id, valor)
         if existente is not None:
             return ResultadoCobranca(existente, efeito=False)
         nova = Cobranca.gerar(compra_id, valor, self._relogio.agora())
@@ -67,15 +72,19 @@ class GerarCobranca(_CasoDeUso):
             self._confirmar(nova)
             return ResultadoCobranca(nova, efeito=True)
         # Outra tentativa do mesmo passo gravou primeiro: devolve a dela.
-        existente = self._existente(compra_id)
+        existente = self._existente(compra_id, valor)
         if existente is None:  # pragma: no cover - a unicidade garante que ela existe
             raise CobrancaNaoEncontradaError(f"a compra {compra_id}")
         return ResultadoCobranca(existente, efeito=False)
 
-    def _existente(self, compra_id: UUID) -> Cobranca | None:
+    def _existente(self, compra_id: UUID, valor: Decimal) -> Cobranca | None:
         existente = self._repo.por_compra(compra_id)
-        if existente is not None and existente.compensada_pela_saga:
+        if existente is None:
+            return None
+        if existente.compensada_pela_saga:
             raise CompraCompensadaError(compra_id)
+        if existente.valor != valor:
+            raise CobrancaDivergenteError(compra_id)
         return existente
 
 

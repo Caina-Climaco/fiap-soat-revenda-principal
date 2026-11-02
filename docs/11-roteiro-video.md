@@ -93,7 +93,9 @@ kubectl get networkpolicy -A
 uv run pytest -m "unit or integration or bdd or contrato" --cov=vendas --cov-branch --cov-fail-under=80
 ```
 
-> "São 155 testes no serviço de venda: unidade, integração, os cenários BDD da compra em Gherkin e os testes de contrato com o principal. Cobertura de 100%, acima dos 80% exigidos. O principal tem 237 testes, também com 100%."
+> "São 172 testes no serviço de venda: unidade, integração, os cenários BDD da compra em Gherkin e os testes de contrato com o principal. Cobertura de 100%, acima dos 80% exigidos. O principal tem 250 testes, também com 100%."
+
+Nota: na tela, o pytest mostra 170 aprovados e 2 pulados no serviço de venda. Os 2 pulados são os de concorrência real, que só rodam com MongoDB (no CI); localmente o banco é simulado.
 
 **Tela**: SonarCloud dos dois projetos (Quality Gate e cobertura) e o resumo de cobertura de um job `testes` no GitHub Actions.
 

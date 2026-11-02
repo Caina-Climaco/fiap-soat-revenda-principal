@@ -5,14 +5,21 @@
 - Ordem por agregado: uma mensagem só sai se não houver outra pendente mais antiga com a
   mesma chave (a réplica de um veículo nunca chega fora de ordem).
 - 2xx: entregue. Erro de rede, 404, 408, 425, 429 e 5xx: nova tentativa com backoff
-  exponencial (até 60 s). Demais 4xx, ou tentativas esgotadas: FALHOU (alerta e métrica).
+  exponencial (até 60 s), sem limite de tentativas: só desiste quando a mensagem passa do
+  prazo de entrega (padrão 24 h), para que uma queda longa do serviço de venda não perca
+  réplicas nem resultados de pagamento. Demais 4xx (erro de contrato, não adianta repetir)
+  ou prazo vencido: FALHOU (alerta e métrica), reprocessável depois da correção
+  (`python -m principal.outbox reprocessar`).
+- O gauge de pendentes é atualizado quando o ciclo entregou algo ou a cada 10 s, não com
+  um `count(*)` a cada ciclo ocioso.
 """
 
 from __future__ import annotations
 
 import logging
 import threading
-from collections.abc import Mapping
+import time
+from collections.abc import Callable, Mapping
 from datetime import timedelta
 from typing import Any, Protocol
 
@@ -33,6 +40,8 @@ ENTREGUE = "ENTREGUE"
 FALHOU = "FALHOU"
 _TRANSITORIOS = frozenset({404, 408, 425, 429})
 _BACKOFF_MAXIMO = 60.0
+PRAZO_ENTREGA_PADRAO = timedelta(hours=24)
+_INTERVALO_GAUGE_SEGUNDOS = 10.0
 
 
 class Entregador(Protocol):
@@ -54,6 +63,14 @@ def transitorio(status: int) -> bool:
     return status >= 500 or status in _TRANSITORIOS
 
 
+def definitivo(status: int, idade: timedelta, prazo: timedelta) -> bool:
+    """FALHOU: 4xx que não adianta repetir, ou a mensagem passou do prazo de entrega.
+
+    `status` 0 é erro de rede. Rede e 5xx nunca esgotam por número de tentativas.
+    """
+    return (status != 0 and not transitorio(status)) or idade >= prazo
+
+
 class RelayOutbox:
     def __init__(
         self,
@@ -62,24 +79,38 @@ class RelayOutbox:
         relogio: Clock,
         *,
         lote: int = 50,
-        max_tentativas: int = 20,
+        prazo_entrega: timedelta = PRAZO_ENTREGA_PADRAO,
         metricas: Metricas | None = None,
+        monotonic: Callable[[], float] = time.monotonic,
     ) -> None:
         self._banco = banco
         self._entregador = entregador
         self._relogio = relogio
         self._lote = lote
-        self._max_tentativas = max_tentativas
+        self._prazo = prazo_entrega
         self._metricas = metricas
+        self._monotonic = monotonic
+        self._gauge_em: float | None = None
 
     def entregar_pendentes(self) -> int:
         """Processa até `lote` mensagens prontas; devolve quantas foram processadas."""
         processadas = 0
         while processadas < self._lote and self._entregar_uma():
             processadas += 1
-        if self._metricas is not None:
-            self._metricas.outbox_pendentes.set(self.pendentes())
+        self._atualizar_gauge(processadas)
         return processadas
+
+    def _atualizar_gauge(self, processadas: int) -> None:
+        if self._metricas is None:
+            return
+        agora = self._monotonic()
+        ocioso_recente = (
+            self._gauge_em is not None and agora - self._gauge_em < _INTERVALO_GAUGE_SEGUNDOS
+        )
+        if processadas == 0 and ocioso_recente:
+            return
+        self._metricas.outbox_pendentes.set(self.pendentes())
+        self._gauge_em = agora
 
     def pendentes(self) -> int:
         with self._banco.nova_sessao() as sessao:
@@ -140,11 +171,8 @@ class RelayOutbox:
             self._registrar_metrica(mensagem, "entregue", agora)
             return {"status": ENTREGUE, "tentativas": tentativas, "entregue_em": agora}
 
-        definitivo = (status != 0 and not transitorio(status)) or (
-            tentativas >= self._max_tentativas
-        )
         descricao = f"HTTP {status}: {erro}" if status else erro
-        if definitivo:
+        if definitivo(status, agora - mensagem["criado_em"], self._prazo):
             _logger.error(
                 "mensagem da outbox sem entrega",
                 extra={
@@ -186,11 +214,27 @@ class RelayOutbox:
 
 
 class ExecutorRelay:
-    """Laço em segundo plano (thread) que chama o relay até ser parado."""
+    """Laço em segundo plano (thread) que chama o relay até ser parado.
 
-    def __init__(self, relay: RelayOutbox, intervalo_segundos: float) -> None:
+    Opcionalmente executa uma tarefa de manutenção (`limpeza`) a cada `intervalo_limpeza`
+    segundos, no mesmo laço; uma falha nela só é registrada.
+    """
+
+    def __init__(
+        self,
+        relay: RelayOutbox,
+        intervalo_segundos: float,
+        *,
+        limpeza: Callable[[], object] | None = None,
+        intervalo_limpeza_segundos: float = 3600.0,
+        monotonic: Callable[[], float] = time.monotonic,
+    ) -> None:
         self._relay = relay
         self._intervalo = intervalo_segundos
+        self._limpeza = limpeza
+        self._intervalo_limpeza = intervalo_limpeza_segundos
+        self._monotonic = monotonic
+        self._limpeza_em: float | None = None
         self._parar = threading.Event()
         self._thread: threading.Thread | None = None
 
@@ -210,5 +254,18 @@ class ExecutorRelay:
             except Exception:  # o laço nunca morre: banco fora volta a tentar no próximo ciclo
                 _logger.exception("falha no ciclo do relay da outbox")
                 processadas = 0
+            self._limpar_se_for_a_hora()
             if processadas == 0:
                 self._parar.wait(self._intervalo)
+
+    def _limpar_se_for_a_hora(self) -> None:
+        if self._limpeza is None:
+            return
+        agora = self._monotonic()
+        if self._limpeza_em is not None and agora - self._limpeza_em < self._intervalo_limpeza:
+            return
+        self._limpeza_em = agora
+        try:
+            self._limpeza()
+        except Exception:  # tenta de novo na próxima janela
+            _logger.exception("falha na limpeza periódica")

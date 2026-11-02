@@ -6,14 +6,18 @@ import threading
 from datetime import timedelta
 
 import httpx
+import pytest
 from sqlalchemy import Engine, text
 
 from apoio.api import Api
 from apoio.fakes import FALHA_DE_REDE, EntregadorFalso
+from principal import outbox as outbox_cli
 from principal.mensageria.relay import RelayOutbox
+from principal.outbox import reprocessar
 from principal.shared.cliente_servico import ClienteServico
 from principal.shared.clock import RelogioFixo
 from principal.shared.db import BancoDeDados
+from principal.shared.metricas import Metricas
 
 
 def _estado(engine: Engine) -> list[tuple[str, str, int]]:
@@ -70,16 +74,20 @@ def test_404_e_5xx_repetem_e_4xx_definitivo_falha(
     assert [s for _, s, _ in _estado(engine)] == ["ENTREGUE", "FALHOU"]
 
 
-def test_tentativas_esgotadas_viram_falha(
+def test_5xx_nao_esgota_por_tentativas_so_pelo_prazo(
     banco: BancoDeDados, api: Api, relogio: RelogioFixo, engine: Engine
 ) -> None:
+    """Item 4.1 da revisão: queda longa do serviço de venda não perde a mensagem."""
     api.cadastrar()
-    vendas = EntregadorFalso(503, 503)
-    relay = RelayOutbox(banco, vendas, relogio, max_tentativas=2)
+    vendas = EntregadorFalso(*([503] * 25))
+    relay = RelayOutbox(banco, vendas, relogio, prazo_entrega=timedelta(hours=2))
+    for _ in range(21):
+        relay.entregar_pendentes()
+        relogio.avancar(timedelta(minutes=1))
+    assert _estado(engine) == [("ANUNCIO", "PENDENTE", 21)]  # 20 tentativas não bastam
+    relogio.avancar(timedelta(hours=2))
     relay.entregar_pendentes()
-    relogio.avancar(timedelta(minutes=1))
-    relay.entregar_pendentes()
-    assert _estado(engine) == [("ANUNCIO", "FALHOU", 2)]
+    assert _estado(engine) == [("ANUNCIO", "FALHOU", 22)]
 
 
 def test_duas_replicas_nunca_entregam_a_mesma_mensagem(
@@ -128,3 +136,78 @@ def test_relay_com_cliente_http_real(banco: BancoDeDados, api: Api, relogio: Rel
     assert requisicao.method == "PUT"
     assert requisicao.url.path == f"/internal/v1/anuncios/{veiculo['id']}"
     assert requisicao.headers["X-Service-Token"] == "token-saida-0123456789"
+
+
+def test_gauge_de_pendentes_nao_conta_a_cada_ciclo_ocioso(
+    banco: BancoDeDados, api: Api, relogio: RelogioFixo
+) -> None:
+    """Item 4.6 da revisão: `count(*)` só quando entregou algo ou a cada 10 s ocioso."""
+    instante = [0.0]
+    metricas = Metricas()
+    relay = RelayOutbox(
+        banco, EntregadorFalso(), relogio, metricas=metricas, monotonic=lambda: instante[0]
+    )
+    contagens: list[int] = []
+    original = relay.pendentes
+
+    def contar() -> int:
+        contagens.append(1)
+        return original()
+
+    relay.pendentes = contar  # type: ignore[method-assign]
+    relay.entregar_pendentes()  # primeiro ciclo: sempre atualiza
+    instante[0] = 5.0
+    relay.entregar_pendentes()  # ocioso há 5 s: não consulta
+    assert len(contagens) == 1
+    api.cadastrar()
+    relay.entregar_pendentes()  # entregou: atualiza na hora
+    assert len(contagens) == 2
+    instante[0] = 16.0
+    relay.entregar_pendentes()  # ocioso há mais de 10 s: atualiza
+    assert len(contagens) == 3
+    assert "revenda_outbox_pendentes 0.0" in metricas.exportar().decode()
+
+
+def test_reprocessar_devolve_falhou_a_pendente(
+    banco: BancoDeDados,
+    api: Api,
+    relay: RelayOutbox,
+    vendas: EntregadorFalso,
+    relogio: RelogioFixo,
+    engine: Engine,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Item 4.2 da revisão: depois de corrigida a causa, a mensagem volta para a fila."""
+    api.cadastrar()
+    api.cadastrar()
+    vendas.responder(422, 422)  # contrato quebrado: as duas viram FALHOU
+    relay.entregar_pendentes()
+    assert [s for _, s, _ in _estado(engine)] == ["FALHOU", "FALHOU"]
+    with engine.connect() as conexao:
+        primeira = conexao.execute(text("SELECT min(id) FROM mensageria.outbox")).scalar_one()
+    assert reprocessar(banco, relogio.agora(), [primeira]) == 1
+    assert _estado(engine) == [("ANUNCIO", "PENDENTE", 0), ("ANUNCIO", "FALHOU", 1)]
+    assert outbox_cli.main(["reprocessar"], banco=banco, relogio=relogio) == 0
+    assert _estado(engine) == [("ANUNCIO", "PENDENTE", 0), ("ANUNCIO", "PENDENTE", 0)]
+    assert relay.entregar_pendentes() == 2
+    assert [s for _, s, _ in _estado(engine)] == ["ENTREGUE", "ENTREGUE"]
+    # Pela linha de comando, com a conexão montada das variáveis de ambiente.
+    url = engine.url.render_as_string(hide_password=False)
+    monkeypatch.setenv("DATABASE_URL", url)
+    assert outbox_cli.main(["reprocessar", "999999"]) == 0
+
+
+def test_reprocessada_depois_do_prazo_vencido_ganha_prazo_novo(
+    banco: BancoDeDados, api: Api, relogio: RelogioFixo, engine: Engine
+) -> None:
+    """Revisão do item 4.2: depois de uma queda longa, a mensagem reprocessada não volta
+    já vencida (o prazo conta do reprocessamento, não da criação original)."""
+    api.cadastrar()
+    vendas = EntregadorFalso(503, 503)
+    relay = RelayOutbox(banco, vendas, relogio, prazo_entrega=timedelta(hours=24))
+    relogio.avancar(timedelta(days=2))  # o serviço de venda ficou fora por 2 dias
+    relay.entregar_pendentes()
+    assert [s for _, s, _ in _estado(engine)] == ["FALHOU"]
+    assert reprocessar(banco, relogio.agora()) == 1
+    relay.entregar_pendentes()  # 503 de novo, logo depois do reprocessamento
+    assert _estado(engine) == [("ANUNCIO", "PENDENTE", 1)]

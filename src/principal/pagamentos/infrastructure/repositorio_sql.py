@@ -18,19 +18,38 @@ from principal.pagamentos.domain.cobranca import (
 )
 from principal.pagamentos.infrastructure.tabelas import cobrancas
 
+# O código tem 48 bits aleatórios: uma colisão já é improvável; duas seguidas indicam defeito.
+_TENTATIVAS_CODIGO = 2
+
+
+class CodigoPagamentoEmUsoError(RuntimeError):
+    """O código gerado colidiu com um existente em todas as tentativas."""
+
 
 class SqlCobrancaRepository:
     def __init__(self, sessao: Session) -> None:
         self._sessao = sessao
 
     def adicionar_se_ausente(self, cobranca: Cobranca) -> bool:
-        resultado = self._sessao.execute(
-            insert_pg(cobrancas)
-            .values(**_para_linha(cobranca))
-            .on_conflict_do_nothing(index_elements=[cobrancas.c.compra_id])
-            .returning(cobrancas.c.id)
-        )
-        return resultado.first() is not None
+        """Grava se a compra ainda não tem cobrança. False: já tinha (idempotência do T3).
+
+        O conflito pode vir de `uq_cobrancas_compra_id` (a compra já tem cobrança) ou de
+        `uq_cobrancas_codigo` (o código sorteado já existe). No segundo caso o código é
+        sorteado de novo e a gravação repetida, em vez de virar um erro 500.
+        """
+        for _ in range(_TENTATIVAS_CODIGO):
+            gravada = self._sessao.execute(
+                insert_pg(cobrancas)
+                .values(**_para_linha(cobranca))
+                .on_conflict_do_nothing()
+                .returning(cobrancas.c.id)
+            ).first()
+            if gravada is not None:
+                return True
+            if self.por_compra(cobranca.compra_id) is not None:
+                return False
+            cobranca.codigo = CodigoPagamento.gerar()
+        raise CodigoPagamentoEmUsoError(str(cobranca.compra_id))
 
     def por_compra(self, compra_id: UUID, *, travar: bool = False) -> Cobranca | None:
         return self._um(cobrancas.c.compra_id == compra_id, travar)

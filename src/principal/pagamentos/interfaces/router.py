@@ -18,6 +18,7 @@ from principal.pagamentos.application.casos_uso import (
     ResultadoCobranca,
 )
 from principal.pagamentos.domain.erros import (
+    CobrancaDivergenteError,
     CobrancaJaPagaError,
     CobrancaNaoEncontradaError,
     CompraCompensadaError,
@@ -42,6 +43,9 @@ PROBLEMAS_PAGAMENTOS: dict[type[Exception], TipoProblema] = {
         "pagamento-apos-cancelamento", "Pagamento após o cancelamento", 409
     ),
     CompraCompensadaError: TipoProblema("compra-compensada", "Compra já compensada", 409),
+    CobrancaDivergenteError: TipoProblema(
+        "cobranca-divergente", "Cobrança já existe com outro valor", 409
+    ),
     ValorInvalidoError: VALIDACAO,
 }
 
@@ -119,8 +123,10 @@ def criar_router_interno_cobrancas(
         status_code=status.HTTP_201_CREATED,
         summary="T3: gerar a cobrança da compra",
         description=(
-            "Idempotente pela compra_id: a primeira chamada responde 201; repetições "
-            "respondem 200 com a mesma cobrança. Depois da compensação, 409."
+            "Idempotente pela compra_id: a primeira chamada responde 201; repetições com o "
+            "mesmo valor respondem 200 com a mesma cobrança. Repetição com outro valor "
+            "responde 409 (cobranca-divergente); depois da compensação, 409 "
+            "(compra-compensada)."
         ),
         response_model=CobrancaResposta,
         responses={

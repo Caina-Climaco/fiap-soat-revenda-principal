@@ -4,10 +4,10 @@
 
 | Nível | Principal | Venda | O que cobre | Onde roda |
 |---|---|---|---|---|
-| Unidade | 149 | 71 | Domínio (Veiculo, Cobranca, Compra, CPF), casos de uso com dublês, relay, cliente resiliente, circuit breaker, cifra, configuração, arquitetura | CI (`testes`) |
-| Integração | 82 | 76 | API real com o banco real (PostgreSQL 16 / MongoDB 7): rotas, erros RFC 9457, outbox, concorrência, saga com o principal simulado, recuperação, logs sem CPF | CI (`testes`) |
+| Unidade | 160 | 79 | Domínio (Veiculo, Cobranca, Compra, CPF), casos de uso com dublês, relay, cliente resiliente, circuit breaker, cifra, configuração, arquitetura | CI (`testes`) |
+| Integração | 88 | 87 | API real com o banco real (PostgreSQL 16 / MongoDB 7): rotas, erros RFC 9457, outbox, concorrência, saga com o principal simulado, recuperação, logs sem CPF | CI (`testes`) |
 | BDD | | 4 | Só no serviço de venda: o fluxo da compra em Gherkin (pytest-bdd) | CI (`testes`) |
-| Contrato | 6 | 4 | Rotas internas nos dois lados (seção 9.4) | CI (`contrato`) |
+| Contrato | 6 | 5 | Rotas internas nos dois lados (seção 9.4); 4 do principal e 3 do serviço de venda também são de integração (usam o banco real) e já entram na linha de cima | CI (`contrato`) |
 | Ponta a ponta | 24 | 14 | Ambiente implantado, sempre pelo Kong | CD |
 | Carga | | 1 script | p95 das listagens (RNF-10) | CD do serviço de venda, depois do e2e; e sob demanda (`carga-listagens.ps1`) |
 
@@ -116,9 +116,9 @@ O CD falha se faltar qualquer variável do e2e (nunca pula em silêncio) e mostr
 
 | RNF | Teste |
 |---|---|
-| RNF-02 (uma compra ativa por veículo) | 10 compras simultâneas do mesmo veículo contra o MongoDB real: exatamente uma aceita |
-| RNF-04 (resiliência) | Cliente resiliente em unidade (retry, jitter, circuit breaker); saga com o principal fora; uma tentativa de compensação por requisição com chamadas lentas |
-| RNF-05 (entrega garantida) | Relay com duas réplicas disputando a outbox; ordem por agregado; backoff e `FALHOU` |
-| RNF-08 (CPF) | Documento cru no MongoDB sem o CPF em claro; logs sem CPF; resposta mascarada; no CD, o CPF cifrado apagado pela recuperação depois da retenção |
+| RNF-02 (uma compra ativa por veículo) | 10 compras simultâneas do mesmo veículo contra o MongoDB real: exatamente uma aceita; duas threads do mesmo processo disputando o lease da saga: só uma obtém |
+| RNF-04 (resiliência) | Cliente resiliente em unidade (retry, jitter, circuit breaker, inclusive erro inesperado no meio-aberto); saga com o principal fora; compensação remota adiada para a recuperação, sem nova rodada de tentativas na requisição |
+| RNF-05 (entrega garantida) | Relay com duas réplicas disputando a outbox; ordem por agregado; backoff; 5xx não esgota por tentativas, só pelo prazo; `FALHOU` e reprocessamento |
+| RNF-08 (CPF) | Documento cru no MongoDB sem o CPF em claro; logs sem CPF; CPF injetado numa linha de log sai mascarado; resposta mascarada; no CD, o CPF cifrado apagado pela recuperação depois da retenção |
 | RNF-10 (desempenho) | k6 a cada deploy do serviço de venda, 8 requisições por segundo por 1 minuto, limites p95 < 300 ms e falhas < 1% |
 | RNF-16 (arquitetura) | import-linter e teste de arquitetura |

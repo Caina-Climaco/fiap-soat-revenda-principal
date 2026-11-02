@@ -152,7 +152,7 @@ Todas exigem `X-Service-Token` e são **idempotentes pela `compra_id`**: repetir
 | `POST /internal/v1/veiculos/{id}/bloqueio` | T2 | `{compra_id, versao}` | 200 `{status: "BLOQUEADO"}` | 404; 409 `versao-divergente`; 409 `veiculo-indisponivel` (bloqueado por outra compra ou vendido); 409 `compra-compensada` |
 | `DELETE /internal/v1/veiculos/{id}/bloqueio/{compra_id}` | C2 | | 200 (também sem efeito, se não havia bloqueio dessa compra) | 409 `veiculo-ja-vendido` |
 | `POST /internal/v1/veiculos/{id}/venda` | T6 | `{compra_id}` | 200 `{status: "VENDIDO"}` | 409 `bloqueio-de-outra-compra` |
-| `POST /internal/v1/cobrancas` | T3 | `{compra_id, valor}` | 201 `{codigo_pagamento, status: "PENDENTE"}`; 200 com a mesma cobrança se repetido | 409 `compra-compensada` |
+| `POST /internal/v1/cobrancas` | T3 | `{compra_id, valor}` | 201 `{codigo_pagamento, status: "PENDENTE"}`; 200 com a mesma cobrança se repetido com o mesmo valor | 409 `compra-compensada`; 409 `cobranca-divergente` (repetido com outro valor) |
 | `POST /internal/v1/cobrancas/{compra_id}/cancelamento` | C3 | | 200 `{status: "CANCELADA"}` (também sem efeito, se já cancelada) | 409 `cobranca-ja-paga` (o pivô aconteceu) |
 
 **Regra contra ressurreição.** Uma chamada de T2 ou T3 pode chegar depois da compensação correspondente: por exemplo, a primeira tentativa estourou o timeout no cliente, a saga compensou, e só então a requisição original foi processada. Para isso não "ressuscitar" um bloqueio ou uma cobrança, toda compensação grava a `compra_id` como compensada. A partir daí, T2 e T3 para essa compra respondem 409 `compra-compensada`. O cancelamento de uma cobrança que ainda não existe também grava essa marca.

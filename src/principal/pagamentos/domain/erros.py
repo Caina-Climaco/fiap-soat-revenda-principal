@@ -44,6 +44,16 @@ class CompraCompensadaError(PagamentosError):
         )
 
 
+class CobrancaDivergenteError(PagamentosError):
+    """T3 repetido com outro valor: não é repetição do mesmo passo, é um pedido diferente."""
+
+    def __init__(self, compra_id: UUID) -> None:
+        self.compra_id = compra_id
+        super().__init__(
+            f"A compra {compra_id} já tem cobrança com outro valor; o pedido foi recusado."
+        )
+
+
 class ValorInvalidoError(PagamentosError):
     def __init__(self) -> None:
         self.erros = [("valor", "deve ser maior que zero, com até 2 casas decimais")]
