@@ -44,7 +44,9 @@ src/principal/
   pagamentos/    domain (Cobranca), application, infrastructure, interfaces (webhook e rotas internas)
   mensageria/    tabela da outbox, gravação e relay
   shared/        config, banco, autorização, erros RFC 9457, logs, métricas, tracing, cliente HTTP
-  composicao.py  liga os contextos à sessão de cada requisição
+  composicao.py  liga os contextos à sessão de cada requisição (e monta a limpeza periódica)
+  limpeza.py     retenção: apaga a outbox entregue e as marcas de compensação antigas
+  outbox.py      CLI de operação: python -m principal.outbox reprocessar [ID...]
   main.py        app factory (uvicorn principal.main:app)
   migracao.py    migração tolerante a rollback (Job do Kubernetes)
 ```
@@ -130,7 +132,7 @@ Detalhes da infraestrutura em [infra/README.md](infra/README.md) e do CI/CD em [
 
 ## 5. Fluxo de contribuição
 
-A `main` é protegida: toda mudança entra por Pull Request, com título em Conventional Commits e os checks do CI verdes (`qualidade`, `testes`, `contrato`, `sonarcloud`, `imagem`, `infra`, `titulo-pr`). O merge dispara o CD, que implanta no kind e roda os testes ponta a ponta pelo Kong (`tests/e2e`). O script `scripts/windows/abrir-pr.ps1` cria a branch, faz o commit, abre o PR e acompanha os checks.
+A `main` é protegida: toda mudança entra por Pull Request, com título em Conventional Commits e os checks do CI verdes (`qualidade`, `testes`, `contrato`, `sonarcloud`, `imagem`, `infra`, `titulo-pr`). O merge dispara o CD, que implanta no kind e roda os testes ponta a ponta pelo Kong (`tests/e2e`). O script `scripts/windows/abrir-pr.ps1` cria a branch, faz o commit, abre o PR e acompanha os checks. O vídeo de entrega é gravado e montado pelo kit em [`scripts/video/`](scripts/video/README.md) (roteiro em [docs/11](docs/11-roteiro-video.md)).
 
 ## 6. Documentação
 

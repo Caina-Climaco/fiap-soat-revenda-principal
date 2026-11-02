@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Terminal</title>
+<!-- Terminal simulado para os clipes dos blocos 4, 5, 7 e 8 (scripts/video/README.md).
+     gravar.py abre esta pagina e chama window.rodarTerminal({...}) com o comando real e a
+     saida real coletada (.setup/video/terminal/*.txt). Nada aqui inventa saida. -->
+<style>
+  :root {
+    --fundo: #0c0c0c;
+    --cmd1: #f9f1a5;
+    --barra: #1f1f1f;
+    --texto: #cccccc;
+    --prompt: #cccccc;
+    --comando: #cccccc;
+    --comentario: #7f8c8d;
+    --ok: #4ec970;
+    --erro: #ff6b6b;
+    --aviso: #f5c451;
+    --fonte: 22px;
+  }
+  html, body { margin: 0; height: 100%; background: var(--fundo); }
+  body { display: flex; flex-direction: column; font-family: "Cascadia Mono", "DejaVu Sans Mono", Consolas, "Liberation Mono", monospace; }
+  /* Janela no estilo do Windows Terminal (esquema Campbell): faixa de abas escura, aba ativa
+     da cor do fundo, botoes de minimizar, maximizar e fechar a direita. */
+  #barra {
+    flex: 0 0 auto; height: 40px; background: #202020; color: #cccccc;
+    display: flex; align-items: flex-end; padding: 0 0 0 8px;
+    font-family: "Segoe UI", "DejaVu Sans", sans-serif; font-size: 13px; user-select: none;
+  }
+  #barra .aba {
+    height: 32px; min-width: 210px; max-width: 360px; background: var(--fundo);
+    border-radius: 8px 8px 0 0; display: flex; align-items: center; gap: 9px; padding: 0 12px;
+  }
+  #barra .icone {
+    width: 16px; height: 16px; border-radius: 3px; display: inline-flex; align-items: center;
+    justify-content: center; font: bold 10px/1 "DejaVu Sans Mono", monospace; color: #fff;
+  }
+  #barra .icone.ps { background: #2671be; }
+  #barra .icone.bash { background: #e95420; }
+  #barra .titulo { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #f2f2f2; }
+  #barra .x-aba { color: #9d9d9d; font-size: 12px; }
+  #barra .mais { padding: 0 12px 8px 14px; font-size: 18px; color: #cccccc; }
+  #barra .seta { padding: 0 8px 9px 0; font-size: 12px; color: #cccccc; }
+  #barra .ctrl { margin-left: auto; align-self: stretch; display: flex; }
+  #barra .ctrl span { width: 46px; display: flex; align-items: center; justify-content: center; font-size: 14px; color: #e6e6e6; }
+  #tela {
+    flex: 1 1 auto; overflow: hidden; padding: 22px 28px 120px 28px;
+    color: var(--texto); font-size: var(--fonte); line-height: 1.32;
+    white-space: pre-wrap; word-break: break-all;
+  }
+  .prompt { color: var(--prompt); }
+  .cmd { color: var(--comando); }
+  .cmd1 { color: var(--cmd1); }
+  .p-user { color: #16c60c; }
+  .p-dir { color: #3b78ff; }
+  .coment { color: var(--comentario); font-style: italic; }
+  .ok { color: var(--ok); }
+  .erro { color: var(--erro); }
+  .aviso { color: var(--aviso); }
+  #cursor { display: inline-block; width: 0.6em; background: var(--texto); animation: piscar 1s steps(1) infinite; }
+  @keyframes piscar { 50% { opacity: 0; } }
+</style>
+</head>
+<body>
+  <div id="barra">
+    <div class="aba">
+      <span class="icone ps" id="icone">&gt;_</span>
+      <span class="titulo" id="titulo-janela">Windows PowerShell</span>
+      <span class="x-aba">&#x2715;</span>
+    </div>
+    <span class="mais">+</span><span class="seta">&#x2304;</span>
+    <div class="ctrl"><span>&#x2500;</span><span>&#x2610;</span><span>&#x2715;</span></div>
+  </div>
+  <div id="tela"></div>
+  <script src="terminal.js"></script>
+</body>
+</html>

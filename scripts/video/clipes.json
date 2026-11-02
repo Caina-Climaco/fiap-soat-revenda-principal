@@ -1,0 +1,236 @@
+{
+  "_comentario": "Blocos do video (docs/11-roteiro-video.md) e clipes de terminal. Cada clipe de terminal exibe o comando real (arquivo .cmd gravado pelo coletor ao lado do .txt; 'comando' abaixo so e usado se o .cmd faltar) e a saida real do .txt em .setup/video/terminal/. Sem .txt, o clipe e pulado e registrado. 'ordem' define a posicao no video final (bloco*100 + sequencia), intercalando com os clipes de navegador definidos em gravar.py.",
+  "prompts": {
+    "windows": "PS C:\\Projetos\\fiap\\fase4\\principal> ",
+    "runner": "runner@revenda-runner-principal:~$ "
+  },
+  "janelas": {
+    "windows": "Windows PowerShell",
+    "runner": "docker exec -it revenda-runner-principal bash"
+  },
+  "blocos": {
+    "1": {
+      "titulo": "Abertura",
+      "subtitulo": "Revenda de veículos em dois microsserviços: principal e venda"
+    },
+    "2": {
+      "titulo": "Arquitetura e segregação",
+      "subtitulo": "Kong na entrada, dois serviços, dois bancos, HTTP com saga e outbox"
+    },
+    "3": {
+      "titulo": "Infraestrutura",
+      "subtitulo": "Cluster kind, Terraform em cada repositório, Kong e NetworkPolicies"
+    },
+    "4": {
+      "titulo": "Testes e cobertura",
+      "subtitulo": "Unidade, integração, BDD, contrato e ponta a ponta; 100% de cobertura"
+    },
+    "5": {
+      "titulo": "PR e deploy automatizado",
+      "subtitulo": "Checks obrigatórios em todo Pull Request e CD no merge na main"
+    },
+    "6": {
+      "titulo": "Uso ponta a ponta",
+      "subtitulo": "Cadastro do veículo, compra com CPF e efetivação pelo pagamento"
+    },
+    "7": {
+      "titulo": "Falha do principal",
+      "subtitulo": "Vitrine no ar, compra desfeita na hora, recuperação e observabilidade"
+    },
+    "8": {
+      "titulo": "Encerramento",
+      "subtitulo": "Resumo e documentação"
+    }
+  },
+  "terminal": [
+    {
+      "id": "t3_01_cluster_yaml",
+      "bloco": 3,
+      "ordem": 310,
+      "origem": "windows",
+      "arquivo": "cluster-yaml.txt",
+      "titulo": "infra/kind/cluster.yaml: um nó; Kong, Grafana, Prometheus e Jaeger só em 127.0.0.1",
+      "comando": "Get-Content infra\\kind\\cluster.yaml"
+    },
+    {
+      "id": "t3_02_pods",
+      "bloco": 3,
+      "ordem": 320,
+      "origem": "runner",
+      "arquivo": "kubectl-pods.txt",
+      "titulo": "Pods por namespace: principal, vendas, gateway e observabilidade",
+      "comando": "kubectl get pods -A"
+    },
+    {
+      "id": "t3_03_principal",
+      "bloco": 3,
+      "ordem": 330,
+      "origem": "runner",
+      "arquivo": "kubectl-principal.txt",
+      "titulo": "Principal: Deployment com 2 réplicas, HPA, PostgreSQL em StatefulSet e Services",
+      "comando": "kubectl -n principal get deploy,statefulset,svc,hpa"
+    },
+    {
+      "id": "t3_04_vendas",
+      "bloco": 3,
+      "ordem": 340,
+      "origem": "runner",
+      "arquivo": "kubectl-vendas.txt",
+      "titulo": "Venda: Deployment, HPA, MongoDB 7 e o CronJob de recuperação de sagas",
+      "comando": "kubectl -n vendas get deploy,statefulset,svc,hpa,cronjob"
+    },
+    {
+      "id": "t3_05_netpol",
+      "bloco": 3,
+      "ordem": 350,
+      "origem": "runner",
+      "arquivo": "kubectl-netpol.txt",
+      "titulo": "NetworkPolicies: cada banco só aceita o próprio serviço",
+      "comando": "kubectl get networkpolicy -A"
+    },
+    {
+      "id": "t3_06_kong_yml",
+      "bloco": 3,
+      "ordem": 360,
+      "origem": "windows",
+      "arquivo": "kong-yml.txt",
+      "titulo": "Kong DB-less: rotas para os dois serviços, key-auth, ACL e limite de taxa",
+      "comando": "Get-Content infra\\kong\\kong.yml.tftpl | Select-String -NotMatch '^\\s*(#|$)'"
+    },
+    {
+      "id": "t3_07_kong_borda",
+      "bloco": 3,
+      "ordem": 365,
+      "origem": "windows",
+      "arquivo": "kong-borda.txt",
+      "titulo": "Na borda: vitrine pública; cadastro sem chave barrado (401); rotas internas sem rota (404)",
+      "comando": "curl.exe -si http://localhost:8080/api/v1/veiculos/a-venda"
+    },
+    {
+      "id": "t3_08_terraform",
+      "bloco": 3,
+      "ordem": 370,
+      "origem": "runner",
+      "arquivo": "terraform-states.txt",
+      "titulo": "Terraform: um state por repositório (principal e serviço de venda)",
+      "comando": "terraform state list -state=/revenda-state/revenda-principal.tfstate"
+    },
+    {
+      "id": "t3_09_docker_ps",
+      "bloco": 3,
+      "ordem": 380,
+      "origem": "runner",
+      "arquivo": "docker-ps.txt",
+      "titulo": "Docker Desktop: o nó do kind e um runner do CD por repositório",
+      "comando": "docker ps"
+    },
+    {
+      "id": "t4_01_ci_principal",
+      "bloco": 4,
+      "ordem": 410,
+      "origem": "windows",
+      "arquivo": "gh-ci-principal.txt",
+      "titulo": "CI do principal (job testes): unidade e integração com PostgreSQL real, cobertura de 100%",
+      "comando": "gh run view --job testes --log"
+    },
+    {
+      "id": "t4_02_ci_vendas",
+      "bloco": 4,
+      "ordem": 420,
+      "origem": "windows",
+      "arquivo": "gh-ci-vendas.txt",
+      "titulo": "CI do serviço de venda (job testes): unidade, integração e BDD com MongoDB real, 100%",
+      "comando": "gh run view --job testes --log"
+    },
+    {
+      "id": "t5_01_prs",
+      "bloco": 5,
+      "ordem": 510,
+      "origem": "windows",
+      "arquivo": "gh-prs.txt",
+      "titulo": "Toda mudança entrou por Pull Request, nos dois repositórios",
+      "comando": "gh pr list --state merged"
+    },
+    {
+      "id": "t5_02_protecao",
+      "bloco": 5,
+      "ordem": 535,
+      "origem": "windows",
+      "arquivo": "gh-protecao.txt",
+      "titulo": "Main protegida nos dois repositórios: PR obrigatório e os 6 checks",
+      "comando": "gh api repos/<repositorio>/branches/main/protection"
+    },
+    {
+      "id": "t5_03_cd_log_principal",
+      "bloco": 5,
+      "ordem": 550,
+      "origem": "windows",
+      "arquivo": "gh-cd-log-principal.txt",
+      "titulo": "CD do principal: Terraform, imagem, migração, rollout e os testes ponta a ponta pelo Kong",
+      "comando": "gh run view --job deploy --log"
+    },
+    {
+      "id": "t5_04_cd_log_vendas",
+      "bloco": 5,
+      "ordem": 570,
+      "origem": "windows",
+      "arquivo": "gh-cd-log-vendas.txt",
+      "titulo": "CD do serviço de venda: e2e com a falha do principal e a carga k6 (p95 abaixo de 300 ms)",
+      "comando": "gh run view --job deploy --log"
+    },
+    {
+      "id": "t5_05_runners",
+      "bloco": 5,
+      "ordem": 580,
+      "origem": "windows",
+      "arquivo": "gh-runners.txt",
+      "titulo": "Runners self-hosted online, um por repositório",
+      "comando": "gh api repos/<repositorio>/actions/runners"
+    },
+    {
+      "id": "t6_01_postgres",
+      "bloco": 6,
+      "ordem": 640,
+      "origem": "runner",
+      "arquivo": "psql-principal.txt",
+      "titulo": "PostgreSQL do principal: Argo VENDIDO, cobrança PAGA; nenhum CPF neste banco",
+      "comando": "kubectl -n principal exec statefulset/principal-db -- psql"
+    },
+    {
+      "id": "t6_02_mongo",
+      "bloco": 6,
+      "ordem": 650,
+      "origem": "runner",
+      "arquivo": "mongo-compras.txt",
+      "titulo": "MongoDB do serviço de venda: a compra com o CPF cifrado (AES-256-GCM) e mascarado",
+      "comando": "kubectl -n vendas exec statefulset/vendas-db -- mongosh"
+    },
+    {
+      "id": "t7_01_derrubar",
+      "bloco": 7,
+      "ordem": 710,
+      "origem": "runner",
+      "arquivo": "caos-derrubar.txt",
+      "titulo": "Derrubando o serviço principal (0 réplicas)",
+      "comando": "kubectl -n principal scale deployment revenda-principal --replicas=0"
+    },
+    {
+      "id": "t7_03_restaurar",
+      "bloco": 7,
+      "ordem": 730,
+      "origem": "runner",
+      "arquivo": "caos-restaurar.txt",
+      "titulo": "O principal volta (2 réplicas)",
+      "comando": "kubectl -n principal scale deployment revenda-principal --replicas=2"
+    },
+    {
+      "id": "t7_04_recuperacao",
+      "bloco": 7,
+      "ordem": 740,
+      "origem": "runner",
+      "arquivo": "caos-recuperacao.txt",
+      "titulo": "A recuperação de sagas conclui a compensação: compra cancelada, Corolla à venda nos dois bancos",
+      "comando": "kubectl -n vendas create job --from=cronjob/revenda-vendas-recuperacao"
+    }
+  ]
+}

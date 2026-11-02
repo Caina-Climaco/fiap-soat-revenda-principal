@@ -1,0 +1,420 @@
+{
+  "_comentario": "Texto da narracao por bloco e por clipe (gerado a partir de sincronia.json; usado pelo montar.py para o narracao.md e o narracao.txt). Prioridade 1 em tudo: o video final legendado usa a sincronia.json.",
+  "palavras_por_minuto": 150,
+  "blocos": {
+    "1": {
+      "abertura": [
+        [
+          1,
+          "Olá, meu nome é Cainã Clímaco, RM366473, e este é o meu Trabalho Substitutivo da Fase 4 do Tech Challenge."
+        ]
+      ],
+      "clipes": {
+        "b1_01_readme": [
+          [
+            1,
+            "A revenda de veículos agora é dividida em dois microsserviços. Este é o serviço principal: cadastro e edição dos veículos, as cobranças e o webhook do processador de pagamentos."
+          ],
+          [
+            1,
+            "Ele também executa os passos da saga que o serviço de venda pede: bloquear o veículo, gerar a cobrança e registrar a venda."
+          ]
+        ],
+        "b1_02_readme_vendas": [
+          [
+            1,
+            "E este é o serviço de venda, que o enunciado pede segregado: listagens e compra, com um banco só dele."
+          ],
+          [
+            1,
+            "A compra é uma saga orquestrada aqui, com compensação de cada passo se algo falhar antes do pagamento."
+          ]
+        ]
+      }
+    },
+    "2": {
+      "abertura": [
+        [
+          1,
+          "Primeiro, a arquitetura e a segregação."
+        ]
+      ],
+      "clipes": {
+        "b2_01_arquitetura": [
+          [
+            1,
+            "O Kong é a única entrada. O principal usa PostgreSQL e o serviço de venda usa MongoDB, e um não acessa o banco do outro."
+          ],
+          [
+            1,
+            "Eles conversam só por HTTP: o serviço de venda chama o principal na compra, e o principal entrega a réplica dos anúncios e o resultado do pagamento por uma outbox transacional."
+          ],
+          [
+            1,
+            "No cluster, cada serviço tem o seu namespace, e a observabilidade fica num namespace próprio."
+          ]
+        ],
+        "b2_02_saga": [
+          [
+            1,
+            "Na saga, a reserva, o bloqueio e a cobrança são compensáveis. O pagamento é o pivô: depois dele, a saga só anda para a frente."
+          ]
+        ]
+      }
+    },
+    "3": {
+      "abertura": [
+        [
+          1,
+          "Agora a infraestrutura."
+        ]
+      ],
+      "clipes": {
+        "t3_01_cluster_yaml": [
+          [
+            1,
+            "Tudo roda num cluster kind, com as portas expostas só no 127.0.0.1."
+          ]
+        ],
+        "t3_02_pods": [
+          [
+            1,
+            "Aqui os pods, separados por namespace: principal, vendas, gateway e observabilidade."
+          ]
+        ],
+        "t3_03_principal": [
+          [
+            1,
+            "O principal tem duas réplicas com HPA e o PostgreSQL num StatefulSet."
+          ]
+        ],
+        "t3_04_vendas": [
+          [
+            1,
+            "O serviço de venda tem as réplicas dele, o MongoDB e o CronJob que retoma sagas interrompidas."
+          ]
+        ],
+        "t3_05_netpol": [
+          [
+            1,
+            "As NetworkPolicies garantem que cada banco só aceite o próprio serviço."
+          ]
+        ],
+        "t3_06_kong_yml": [
+          [
+            1,
+            "O Kong é declarativo: as rotas dos dois serviços, as chaves dos consumers, a ACL e o limite de taxa."
+          ]
+        ],
+        "t3_07_kong_borda": [
+          [
+            1,
+            "Na prática: a vitrine é pública, o cadastro sem chave é barrado na borda, e as rotas internas nem existem do lado de fora."
+          ]
+        ],
+        "t3_08_terraform": [
+          [
+            1,
+            "Cada repositório tem o próprio Terraform, com o próprio state."
+          ]
+        ],
+        "t3_09_docker_ps": [
+          [
+            1,
+            "No Docker Desktop, o nó do kind e um runner do CD para cada repositório."
+          ]
+        ],
+        "b3_01_terraform": [
+          [
+            1,
+            "Os arquivos do Terraform ficam versionados em cada repositório."
+          ]
+        ]
+      }
+    },
+    "4": {
+      "abertura": [
+        [
+          1,
+          "Os testes e a cobertura."
+        ]
+      ],
+      "clipes": {
+        "t4_01_ci_principal": [
+          [
+            1,
+            "No CI do principal, os testes de unidade e de integração rodam contra um PostgreSQL de verdade, com cem por cento de cobertura. O mínimo exigido é oitenta."
+          ]
+        ],
+        "t4_02_ci_vendas": [
+          [
+            1,
+            "No serviço de venda, unidade, integração e os cenários BDD da compra, contra um MongoDB de verdade, também com cem por cento."
+          ]
+        ],
+        "b4_01_sonar_principal": [
+          [
+            1,
+            "A cobertura vai para o SonarCloud, que é um dos checks obrigatórios do Pull Request."
+          ]
+        ],
+        "b4_02_sonar_vendas": [
+          [
+            1,
+            "Os dois projetos passam no Quality Gate."
+          ]
+        ]
+      }
+    },
+    "5": {
+      "abertura": [
+        [
+          1,
+          "O fluxo de Pull Request e o deploy automatizado."
+        ]
+      ],
+      "clipes": {
+        "t5_01_prs": [
+          [
+            1,
+            "Toda mudança entrou por Pull Request, nos dois repositórios."
+          ]
+        ],
+        "b5_01_pr_principal": [
+          [
+            1,
+            "Este é o último PR do principal, com o título em Conventional Commits e o merge por squash."
+          ],
+          [
+            1,
+            "Os seis checks obrigatórios: qualidade, testes, contrato, SonarCloud, imagem e infraestrutura."
+          ]
+        ],
+        "b5_02_pr_vendas": [
+          [
+            1,
+            "O serviço de venda segue o mesmo fluxo, com os mesmos checks e os testes de contrato com o principal."
+          ]
+        ],
+        "t5_02_protecao": [
+          [
+            1,
+            "A main é protegida: sem os checks verdes, não tem merge."
+          ]
+        ],
+        "b5_03_cd_principal": [
+          [
+            1,
+            "O merge na main dispara o CD, que roda num runner no meu PC: aplica o Terraform, constrói a imagem e implanta no cluster."
+          ]
+        ],
+        "t5_03_cd_log_principal": [
+          [
+            1,
+            "E termina com os testes ponta a ponta pelo Kong."
+          ]
+        ],
+        "b5_05_cd_vendas": [
+          [
+            1,
+            "O CD do serviço de venda faz o mesmo."
+          ]
+        ],
+        "t5_04_cd_log_vendas": [
+          [
+            1,
+            "Ele roda os testes ponta a ponta, inclusive com o principal derrubado de propósito, e uma carga com o k6: o p95 das listagens ficou muito abaixo dos trezentos milissegundos."
+          ]
+        ],
+        "t5_05_runners": [
+          [
+            1,
+            "Um runner self-hosted para cada repositório."
+          ]
+        ]
+      }
+    },
+    "6": {
+      "abertura": [
+        [
+          1,
+          "Agora o uso, de ponta a ponta."
+        ]
+      ],
+      "clipes": {
+        "b6_01_cadastro": [
+          [
+            1,
+            "O gestor cadastra os veículos no principal. A chave dele é validada pelo Kong."
+          ],
+          [
+            1,
+            "Cada cadastro responde 201, com a versão do veículo."
+          ]
+        ],
+        "b6_02_edicao": [
+          [
+            1,
+            "Uma edição gera uma nova versão, que também é publicada na vitrine."
+          ]
+        ],
+        "b6_03_vitrine": [
+          [
+            1,
+            "No serviço de venda, a vitrine já recebeu os anúncios pela outbox."
+          ],
+          [
+            1,
+            "E a lista vem do mais barato para o mais caro."
+          ]
+        ],
+        "b6_04_compra": [
+          [
+            1,
+            "O comprador informa só o CPF e a versão do anúncio que ele viu."
+          ],
+          [
+            1,
+            "A saga reservou o anúncio e pediu ao principal o bloqueio do veículo e a cobrança. A resposta traz o código do pagamento e o CPF mascarado."
+          ]
+        ],
+        "b6_05_segunda_compra": [
+          [
+            1,
+            "Uma segunda compra do mesmo veículo é recusada: a reserva garante uma compra ativa por veículo."
+          ]
+        ],
+        "b6_06_edicao_bloqueada": [
+          [
+            1,
+            "E o gestor não consegue mais editar o veículo, porque ele está bloqueado pela compra."
+          ]
+        ],
+        "b6_07_webhook": [
+          [
+            1,
+            "Agora o processador de pagamentos confirma o pagamento, com a chave dele e o segredo do webhook."
+          ],
+          [
+            1,
+            "O principal registra o pagamento. Esse é o pivô da saga."
+          ]
+        ],
+        "b6_08_efetivada": [
+          [
+            1,
+            "O principal repassa o resultado ao serviço de venda pela outbox, e a saga efetiva a compra, com a data da venda."
+          ],
+          [
+            1,
+            "O veículo aparece entre os vendidos, sem nenhum dado do comprador."
+          ]
+        ],
+        "t6_01_postgres": [
+          [
+            1,
+            "No banco do principal: o veículo vendido e a cobrança paga. Não tem nenhum CPF aqui."
+          ]
+        ],
+        "t6_02_mongo": [
+          [
+            1,
+            "No banco do serviço de venda, a compra guarda o CPF cifrado com AES-256-GCM, além da forma mascarada."
+          ]
+        ],
+        "b6_11_jaeger": [
+          [
+            1,
+            "No Jaeger, a mesma compra de ponta a ponta: o Kong, o serviço de venda e as chamadas ao principal."
+          ],
+          [
+            1,
+            "Cada serviço com o seu banco."
+          ]
+        ]
+      }
+    },
+    "7": {
+      "abertura": [
+        [
+          1,
+          "E se o principal cair no meio de uma compra?"
+        ]
+      ],
+      "clipes": {
+        "t7_01_derrubar": [
+          [
+            1,
+            "Eu derrubo o serviço principal."
+          ]
+        ],
+        "b7_02_principal_fora": [
+          [
+            1,
+            "A vitrine continua respondendo, porque é uma réplica local."
+          ],
+          [
+            1,
+            "Uma compra agora não consegue bloquear o veículo no principal."
+          ],
+          [
+            1,
+            "A resposta é 503, com Retry-After."
+          ],
+          [
+            1,
+            "A compra foi desfeita na hora, e o veículo continua à venda."
+          ]
+        ],
+        "t7_03_restaurar": [
+          [
+            1,
+            "O principal volta."
+          ]
+        ],
+        "t7_04_recuperacao": [
+          [
+            1,
+            "A recuperação de sagas conclui a compensação pendente: a compra fica cancelada e o veículo segue à venda nos dois bancos."
+          ]
+        ],
+        "b7_04_grafana": [
+          [
+            1,
+            "No Grafana, o funil da compra, com a compra desfeita por falha."
+          ],
+          [
+            1,
+            "E a resiliência: o estado do circuit breaker e as chamadas ao principal por resultado."
+          ]
+        ],
+        "b7_05_prometheus": [
+          [
+            1,
+            "As regras de alerta são versionadas e testadas no CI."
+          ]
+        ]
+      }
+    },
+    "8": {
+      "abertura": [
+        [
+          1,
+          "Para encerrar."
+        ]
+      ],
+      "clipes": {
+        "b8_01_documentacao": [
+          [
+            1,
+            "Resumindo: dois serviços com bancos separados, conversando por HTTP com saga, outbox e resiliência; testes com cem por cento de cobertura e contratos verificados dos dois lados; tudo entregue por Pull Request, com deploy automático e testes ponta a ponta."
+          ],
+          [
+            1,
+            "A documentação completa está nos repositórios. Obrigado."
+          ]
+        ]
+      }
+    }
+  }
+}

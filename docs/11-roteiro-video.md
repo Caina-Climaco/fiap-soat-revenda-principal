@@ -2,6 +2,8 @@
 
 O enunciado pede um vídeo "demonstrando a solução funcionando, tanto na infraestrutura quanto no uso, fazendo um teste ponta-a-ponta, com cadastro de veículo para venda, compra e efetivação da compra, mostrando a implementação e o uso dos serviços funcionando de forma segregada, mas se comunicando, com os testes rodando e mostrando evidências da cobertura dos testes". Este roteiro cobre cada item nessa ordem, em cerca de 12 minutos. As falas são sugestões em primeira pessoa, para adaptar.
 
+O vídeo entregue foi gravado sem intervenção pelo kit em [`scripts/video/`](../scripts/video/README.md): Playwright num container na rede do kind, saídas reais coletadas do cluster e do GitHub, e as falas deste roteiro como legenda (`sincronia.json`). Os trechos parados são cortados na montagem, por isso o vídeo final tem cerca de 13 minutos.
+
 ## 11.1 Blocos e tempos
 
 | # | Bloco | Início | Duração | Item do enunciado |
@@ -95,7 +97,7 @@ uv run pytest -m "unit or integration or bdd or contrato" --cov=vendas --cov-bra
 
 > "São 172 testes no serviço de venda: unidade, integração, os cenários BDD da compra em Gherkin e os testes de contrato com o principal. Cobertura de 100%, acima dos 80% exigidos. O principal tem 250 testes, também com 100%."
 
-Nota: na tela, o pytest mostra 170 aprovados e 2 pulados no serviço de venda. Os 2 pulados são os de concorrência real, que só rodam com MongoDB (no CI); localmente o banco é simulado.
+Nota: as contagens são as do dia da gravação (a seção 9.1 de [09](09-testes.md) traz as atuais). Na tela, o pytest mostra 170 aprovados e 2 pulados no serviço de venda. Os 2 pulados são os de concorrência real, que só rodam com MongoDB (no CI); localmente o banco é simulado.
 
 **Tela**: SonarCloud dos dois projetos (Quality Gate e cobertura) e o resumo de cobertura de um job `testes` no GitHub Actions.
 
@@ -107,7 +109,7 @@ Nota: na tela, o pytest mostra 170 aprovados e 2 pulados no serviço de venda. O
 
 ### Bloco 6: Uso ponta a ponta (6:30 a 10:00)
 
-1. **Cadastro do veículo** (Swagger do principal, Authorize com a chave do gestor no header `apikey` ou pelo terminal):
+1. **Cadastro do veículo** (Swagger do principal ou terminal). O Swagger não envia o header `apikey` do Kong: o esquema documentado nas rotas do gestor é o `X-Consumer-Username`, que o próprio Kong injeta depois de validar a chave. Por isso a chave do gestor vai no cliente HTTP (no kit de gravação, `scripts/video/`, o navegador acrescenta o `apikey` só às chamadas para `/api/`); pelo terminal:
 
    ```powershell
    $g = @{ apikey = "<chave do gestor>" }

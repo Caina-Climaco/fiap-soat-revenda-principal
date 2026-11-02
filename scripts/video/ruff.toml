@@ -1,0 +1,7 @@
+# Kit de gravacao do video (ferramenta local, fora da aplicacao): herda as regras do projeto
+# e libera o que e proprio de script de ferramenta: subprocess com ffmpeg/ffprobe (S603,
+# S607) e o JavaScript/CSS do overlay em strings longas (E501).
+extend = "../../pyproject.toml"
+
+[lint.per-file-ignores]
+"*.py" = ["S603", "S607", "E501"]
