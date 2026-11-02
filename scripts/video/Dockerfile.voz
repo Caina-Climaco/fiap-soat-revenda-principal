@@ -1,0 +1,10 @@
+# Imagem para clonar a voz do autor (XTTS-v2, Coqui) em CPU, derivada da imagem de gravacao
+# (que ja tem Python 3 e ffmpeg). Construida uma vez pelo narrar.ps1 -Motor xtts.
+# O modelo (~1,8 GB) e baixado na primeira execucao para /saida/modelos-voz (TTS_HOME),
+# fora da imagem, e reaproveitado nas proximas.
+ARG BASE=revenda-video:1.63.0
+FROM ${BASE}
+ENV PIP_ROOT_USER_ACTION=ignore PIP_DISABLE_PIP_VERSION_CHECK=1
+RUN pip install --no-cache-dir "torch==2.8.*" "torchaudio==2.8.*" --index-url https://download.pytorch.org/whl/cpu \
+ && pip install --no-cache-dir "coqui-tts>=0.25" "transformers<5" edge-tts
+ENV COQUI_TOS_AGREED=1 TTS_HOME=/saida/modelos-voz
