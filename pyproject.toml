@@ -31,7 +31,6 @@ dev = [
     "jsonschema>=4.23,<5",
     "mypy>=2.4.0,<3",
     "pytest>=9.1.1,<10",
-    "pytest-bdd>=8.1",
     "pytest-cov>=7.1.0,<8",
     "ruff>=0.16.10,<0.17",
 ]

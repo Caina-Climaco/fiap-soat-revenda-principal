@@ -92,7 +92,7 @@ def nivel_acesso(status: int) -> int:
 
 
 def rota_template(scope: Scope) -> str:
-    """Template da rota (/api/v1/vendas/{venda_id}) em vez do caminho concreto.
+    """Template da rota (/api/v1/veiculos/{veiculo_id}) em vez do caminho concreto.
 
     É reconstruído a partir de `path` e `path_params` porque, com routers incluídos, o
     `scope["route"]` do FastAPI aponta para a rota original, sem os prefixos. A query
