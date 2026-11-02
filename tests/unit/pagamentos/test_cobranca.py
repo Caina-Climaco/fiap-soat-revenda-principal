@@ -16,7 +16,9 @@ from principal.pagamentos.domain.cobranca import (
 )
 from principal.pagamentos.domain.erros import (
     CobrancaJaPagaError,
+    CodigoPagamentoEmUsoError,
     PagamentoAposCancelamentoError,
+    PagamentosError,
     ValorInvalidoError,
 )
 
@@ -32,6 +34,23 @@ def test_gerar_cria_pendente_com_codigo_no_formato() -> None:
     assert cobranca.status is StatusCobranca.PENDENTE
     assert CodigoPagamento.FORMATO.match(str(cobranca.codigo))
     assert [e.nome for e in cobranca.coletar_eventos()] == ["CobrancaGerada"]
+
+
+def test_sortear_novo_codigo_troca_o_codigo_no_mesmo_formato() -> None:
+    cobranca = nova()
+    anterior = cobranca.codigo
+    cobranca.sortear_novo_codigo()
+    assert cobranca.codigo != anterior
+    assert CodigoPagamento.FORMATO.match(str(cobranca.codigo))
+
+
+def test_codigo_em_uso_nao_e_erro_de_negocio() -> None:
+    """Colisão repetida é defeito (500), e não uma regra de Pagamentos."""
+    compra_id = uuid4()
+    erro = CodigoPagamentoEmUsoError(compra_id)
+    assert not isinstance(erro, PagamentosError)
+    assert erro.compra_id == compra_id
+    assert str(compra_id) in str(erro)
 
 
 def test_codigos_sao_aleatorios_e_formato_e_validado() -> None:

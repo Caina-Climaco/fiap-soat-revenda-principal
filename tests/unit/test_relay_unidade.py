@@ -7,7 +7,14 @@ from datetime import timedelta
 
 import pytest
 
-from principal.mensageria.relay import ExecutorRelay, backoff, definitivo, transitorio
+from apoio.fakes import RelogioMonotonico
+from principal.mensageria.relay import (
+    ExecutorRelay,
+    Periodicidade,
+    backoff,
+    definitivo,
+    transitorio,
+)
 
 
 @pytest.mark.parametrize(
@@ -80,12 +87,12 @@ def test_parar_sem_iniciar_nao_falha() -> None:
 
 
 def test_executor_limpa_na_primeira_volta_e_depois_so_a_cada_intervalo() -> None:
-    """Item 4.7 da revisão: limpeza no laço do relay, com falha que não derruba o laço."""
-    instante = [0.0]
+    """ADR-003: limpeza no laço do relay, com falha que não derruba o laço."""
+    monotonico = RelogioMonotonico()
     limpezas: list[float] = []
 
     def limpar() -> None:
-        limpezas.append(instante[0])
+        limpezas.append(monotonico())
         if len(limpezas) == 2:
             raise RuntimeError("banco fora durante a limpeza")
 
@@ -94,15 +101,26 @@ def test_executor_limpa_na_primeira_volta_e_depois_so_a_cada_intervalo() -> None
         intervalo_segundos=0.01,
         limpeza=limpar,
         intervalo_limpeza_segundos=3600,
-        monotonic=lambda: instante[0],
+        monotonic=monotonico,
     )
     executor._limpar_se_for_a_hora()
-    instante[0] = 1800.0
+    monotonico.instante = 1800.0
     executor._limpar_se_for_a_hora()  # dentro da hora: não limpa
-    instante[0] = 3600.0
+    monotonico.instante = 3600.0
     executor._limpar_se_for_a_hora()  # falha: só registra
-    instante[0] = 7200.0
+    monotonico.instante = 7200.0
     executor._limpar_se_for_a_hora()
     assert limpezas == [0.0, 3600.0, 7200.0]
     sem_limpeza = ExecutorRelay(RelayDeMentira(), intervalo_segundos=0.01)  # type: ignore[arg-type]
     sem_limpeza._limpar_se_for_a_hora()  # sem tarefa configurada: nada a fazer
+
+
+def test_periodicidade_vence_na_primeira_vez_e_depois_a_cada_intervalo() -> None:
+    monotonico = RelogioMonotonico()
+    janela = Periodicidade(10.0, monotonico)
+    assert janela.vencida()
+    janela.marcar()
+    monotonico.instante = 9.9
+    assert not janela.vencida()
+    monotonico.instante = 10.0
+    assert janela.vencida()

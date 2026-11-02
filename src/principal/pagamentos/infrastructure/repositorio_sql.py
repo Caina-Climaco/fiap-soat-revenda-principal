@@ -16,14 +16,11 @@ from principal.pagamentos.domain.cobranca import (
     OrigemCancelamento,
     StatusCobranca,
 )
+from principal.pagamentos.domain.erros import CodigoPagamentoEmUsoError
 from principal.pagamentos.infrastructure.tabelas import cobrancas
 
 # O código tem 48 bits aleatórios: uma colisão já é improvável; duas seguidas indicam defeito.
 _TENTATIVAS_CODIGO = 2
-
-
-class CodigoPagamentoEmUsoError(RuntimeError):
-    """O código gerado colidiu com um existente em todas as tentativas."""
 
 
 class SqlCobrancaRepository:
@@ -48,8 +45,8 @@ class SqlCobrancaRepository:
                 return True
             if self.por_compra(cobranca.compra_id) is not None:
                 return False
-            cobranca.codigo = CodigoPagamento.gerar()
-        raise CodigoPagamentoEmUsoError(str(cobranca.compra_id))
+            cobranca.sortear_novo_codigo()
+        raise CodigoPagamentoEmUsoError(cobranca.compra_id)
 
     def por_compra(self, compra_id: UUID, *, travar: bool = False) -> Cobranca | None:
         return self._um(cobrancas.c.compra_id == compra_id, travar)

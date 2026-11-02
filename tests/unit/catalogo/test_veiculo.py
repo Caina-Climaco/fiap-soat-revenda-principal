@@ -115,7 +115,7 @@ OUTRA = uuid4()
 
 
 def test_dados_invalidos_respondem_422_mesmo_com_o_veiculo_bloqueado() -> None:
-    """Item 4.4 da revisão: validação antes do estado (422 antes de 409)."""
+    """RN-15: validação antes do estado (422 antes de 409)."""
     veiculo = novo()
     veiculo.bloquear(COMPRA, 1, AGORA)
     with pytest.raises(DadosVeiculoInvalidosError):

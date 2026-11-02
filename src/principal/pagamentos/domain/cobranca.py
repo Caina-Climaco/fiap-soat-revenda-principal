@@ -111,6 +111,14 @@ class Cobranca:
         cobranca._registrar(CobrancaCancelada, agora)
         return cobranca
 
+    def sortear_novo_codigo(self) -> None:
+        """Troca o código por outro sorteado (o anterior colidiu com o de outra cobrança).
+
+        Só vale antes da primeira gravação: o código é a chave que o processador de
+        pagamentos recebe, e uma cobrança já registrada não muda de código.
+        """
+        self.codigo = CodigoPagamento.gerar()
+
     @property
     def compensada_pela_saga(self) -> bool:
         return (

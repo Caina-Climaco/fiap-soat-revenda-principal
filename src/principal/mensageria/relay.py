@@ -44,6 +44,26 @@ PRAZO_ENTREGA_PADRAO = timedelta(hours=24)
 _INTERVALO_GAUGE_SEGUNDOS = 10.0
 
 
+class Periodicidade:
+    """Diz se já passou o intervalo desde a última execução (relógio monotônico injetável).
+
+    A primeira consulta sempre está vencida; `marcar` registra a execução de agora.
+    """
+
+    def __init__(
+        self, intervalo_segundos: float, monotonic: Callable[[], float] = time.monotonic
+    ) -> None:
+        self._intervalo = intervalo_segundos
+        self._monotonic = monotonic
+        self._ultima: float | None = None
+
+    def vencida(self) -> bool:
+        return self._ultima is None or self._monotonic() - self._ultima >= self._intervalo
+
+    def marcar(self) -> None:
+        self._ultima = self._monotonic()
+
+
 class Entregador(Protocol):
     def enviar(
         self,
@@ -89,8 +109,7 @@ class RelayOutbox:
         self._lote = lote
         self._prazo = prazo_entrega
         self._metricas = metricas
-        self._monotonic = monotonic
-        self._gauge_em: float | None = None
+        self._gauge = Periodicidade(_INTERVALO_GAUGE_SEGUNDOS, monotonic)
 
     def entregar_pendentes(self) -> int:
         """Processa até `lote` mensagens prontas; devolve quantas foram processadas."""
@@ -103,14 +122,10 @@ class RelayOutbox:
     def _atualizar_gauge(self, processadas: int) -> None:
         if self._metricas is None:
             return
-        agora = self._monotonic()
-        ocioso_recente = (
-            self._gauge_em is not None and agora - self._gauge_em < _INTERVALO_GAUGE_SEGUNDOS
-        )
-        if processadas == 0 and ocioso_recente:
+        if processadas == 0 and not self._gauge.vencida():
             return
         self._metricas.outbox_pendentes.set(self.pendentes())
-        self._gauge_em = agora
+        self._gauge.marcar()
 
     def pendentes(self) -> int:
         with self._banco.nova_sessao() as sessao:
@@ -232,9 +247,7 @@ class ExecutorRelay:
         self._relay = relay
         self._intervalo = intervalo_segundos
         self._limpeza = limpeza
-        self._intervalo_limpeza = intervalo_limpeza_segundos
-        self._monotonic = monotonic
-        self._limpeza_em: float | None = None
+        self._janela_limpeza = Periodicidade(intervalo_limpeza_segundos, monotonic)
         self._parar = threading.Event()
         self._thread: threading.Thread | None = None
 
@@ -261,10 +274,11 @@ class ExecutorRelay:
     def _limpar_se_for_a_hora(self) -> None:
         if self._limpeza is None:
             return
-        agora = self._monotonic()
-        if self._limpeza_em is not None and agora - self._limpeza_em < self._intervalo_limpeza:
+        if not self._janela_limpeza.vencida():
             return
-        self._limpeza_em = agora
+        # Marcada antes de executar: uma falha só é retentada na próxima janela, para que um
+        # banco fora não transforme a limpeza numa tentativa a cada ciclo do relay.
+        self._janela_limpeza.marcar()
         try:
             self._limpeza()
         except Exception:  # tenta de novo na próxima janela

@@ -125,6 +125,10 @@ flowchart LR
         relay[RelayOutbox<br/>SKIP LOCKED, backoff]
         cliente[ClienteServico<br/>timeout, bulkhead]
     end
+    subgraph manutencao[manutenção]
+        limpeza[LimpezaPeriodica<br/>1 vez por hora, no laço do relay]
+        cli[principal.outbox<br/>reprocessar FALHOU]
+    end
     rv & ri --> uc_cat
     rw & ri --> uc_pag
     uc_cat --> veiculo
@@ -132,10 +136,14 @@ flowchart LR
     uc_cat & uc_pag --> repo_sql & outbox
     relay --> outbox
     relay --> cliente
+    relay -.-> limpeza
+    limpeza --> outbox & repo_sql
+    cli --> outbox
 ```
 
 - Cada caso de uso roda numa transação (Unit of Work). A mensagem da outbox é gravada **na mesma transação** da mudança de negócio: anúncio publicado se e só se o veículo mudou; resultado repassado se e só se a cobrança mudou.
 - O relay roda em segundo plano em cada réplica; `FOR UPDATE SKIP LOCKED` divide o trabalho e a ordem por agregado impede que a versão 2 do anúncio chegue antes da 1.
+- No mesmo laço, uma vez por hora, a limpeza periódica apaga as mensagens entregues há mais de 7 dias e as marcas de compensação com mais de 30 dias. Ela não conhece as tabelas: a outbox é apagada pela mensageria e as marcas pelo repositório do Catálogo, e só `composicao.py` liga as peças (contrato do import-linter). Mensagens em FALHOU voltam para a fila pelo CLI `python -m principal.outbox reprocessar`.
 
 ### 4.4.2 Serviço de venda
 
@@ -327,4 +335,4 @@ src/<servico>/
 
 ### 4.7.2 Regra de dependência
 
-`interfaces → application → domain`; `infrastructure` implementa as portas do domínio e da aplicação. O domínio não importa FastAPI, SQLAlchemy nem PyMongo; os contextos do principal (`catalogo`, `pagamentos`) não se importam entre si. O **import-linter** quebra o CI se uma importação violar essas regras, e um teste de arquitetura confere o mesmo.
+`interfaces → application → domain`; `infrastructure` implementa as portas do domínio e da aplicação. O domínio não importa FastAPI, SQLAlchemy nem PyMongo; os contextos do principal (`catalogo`, `pagamentos`) não se importam entre si, e os módulos de topo que não são a composição (como `limpeza.py`) não importam os contextos nem a mensageria. O **import-linter** quebra o CI se uma importação violar essas regras, e um teste de arquitetura confere o mesmo.

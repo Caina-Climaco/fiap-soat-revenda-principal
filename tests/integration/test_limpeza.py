@@ -1,4 +1,4 @@
-"""Limpeza periódica (item 4.7 da revisão) contra PostgreSQL real."""
+"""Limpeza periódica (ADR-003 e docs/06, retenção) contra PostgreSQL real."""
 
 from __future__ import annotations
 
@@ -9,12 +9,13 @@ from sqlalchemy import Engine, insert, select
 
 from apoio.cenario import AS_10H
 from principal.catalogo.infrastructure.tabelas import compensacoes
-from principal.limpeza import LimpezaPeriodica
+from principal.composicao import nova_limpeza
+from principal.limpeza import ResultadoLimpeza
 from principal.mensageria.tabelas import outbox
 from principal.shared.clock import RelogioFixo
 from principal.shared.db import BancoDeDados
 
-DIAS = timedelta(days=1)
+DIA = timedelta(days=1)
 
 
 def _mensagem(chave: str, status: str, entregue_em: object) -> dict[str, object]:
@@ -25,8 +26,8 @@ def _mensagem(chave: str, status: str, entregue_em: object) -> dict[str, object]
         "caminho": "/internal/v1/anuncios/x",
         "corpo": {},
         "status": status,
-        "proxima_tentativa": AS_10H - 30 * DIAS,
-        "criado_em": AS_10H - 30 * DIAS,
+        "proxima_tentativa": AS_10H - 30 * DIA,
+        "criado_em": AS_10H - 30 * DIA,
         "entregue_em": entregue_em,
     }
 
@@ -37,8 +38,8 @@ def test_apaga_so_entregues_antigas_e_marcas_antigas(banco: BancoDeDados, engine
         conexao.execute(
             insert(outbox),
             [
-                _mensagem("entregue-antiga", "ENTREGUE", AS_10H - 8 * DIAS),
-                _mensagem("entregue-recente", "ENTREGUE", AS_10H - 6 * DIAS),
+                _mensagem("entregue-antiga", "ENTREGUE", AS_10H - 8 * DIA),
+                _mensagem("entregue-recente", "ENTREGUE", AS_10H - 6 * DIA),
                 _mensagem("pendente-antiga", "PENDENTE", None),
                 _mensagem("falhou-antiga", "FALHOU", None),
             ],
@@ -46,11 +47,11 @@ def test_apaga_so_entregues_antigas_e_marcas_antigas(banco: BancoDeDados, engine
         conexao.execute(
             insert(compensacoes),
             [
-                {"compra_id": antiga, "veiculo_id": uuid4(), "registrada_em": AS_10H - 31 * DIAS},
-                {"compra_id": recente, "veiculo_id": uuid4(), "registrada_em": AS_10H - DIAS},
+                {"compra_id": antiga, "veiculo_id": uuid4(), "registrada_em": AS_10H - 31 * DIA},
+                {"compra_id": recente, "veiculo_id": uuid4(), "registrada_em": AS_10H - DIA},
             ],
         )
-    limpeza = LimpezaPeriodica(banco, RelogioFixo(AS_10H))
+    limpeza = nova_limpeza(banco, RelogioFixo(AS_10H))
     resultado = limpeza.executar()
     assert (resultado.mensagens_entregues, resultado.compensacoes) == (1, 1)
     with engine.connect() as conexao:
@@ -58,4 +59,4 @@ def test_apaga_so_entregues_antigas_e_marcas_antigas(banco: BancoDeDados, engine
         marcas = set(conexao.execute(select(compensacoes.c.compra_id)).scalars())
     assert chaves == {"entregue-recente", "pendente-antiga", "falhou-antiga"}
     assert marcas == {recente}
-    assert limpeza.executar() == type(resultado)(0, 0)  # repetir não tem efeito
+    assert limpeza.executar() == ResultadoLimpeza(0, 0)  # repetir não tem efeito

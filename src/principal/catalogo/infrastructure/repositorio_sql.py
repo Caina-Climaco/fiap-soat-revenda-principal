@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 from uuid import UUID
 
-from sqlalchemy import func, insert, select, update
+from sqlalchemy import CursorResult, delete, func, insert, select, update
 from sqlalchemy.dialects.postgresql import insert as insert_pg
 from sqlalchemy.engine import RowMapping
 from sqlalchemy.orm import Session
@@ -55,6 +55,14 @@ class SqlVeiculoRepository:
     def compensacao_registrada(self, compra_id: UUID) -> bool:
         consulta = select(compensacoes.c.compra_id).where(compensacoes.c.compra_id == compra_id)
         return self._sessao.execute(consulta).first() is not None
+
+    def apagar_compensacoes_anteriores(self, limite: datetime) -> int:
+        """Retenção das marcas da regra contra ressurreição (limpeza periódica)."""
+        resultado = cast(
+            CursorResult[Any],
+            self._sessao.execute(delete(compensacoes).where(compensacoes.c.registrada_em < limite)),
+        )
+        return int(resultado.rowcount)
 
     def registrar_compensacao(self, compra_id: UUID, veiculo_id: UUID, agora: datetime) -> None:
         self._sessao.execute(

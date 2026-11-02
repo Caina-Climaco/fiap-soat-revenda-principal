@@ -10,7 +10,7 @@ import pytest
 from sqlalchemy import Engine, text
 
 from apoio.api import Api
-from apoio.fakes import FALHA_DE_REDE, EntregadorFalso
+from apoio.fakes import FALHA_DE_REDE, EntregadorFalso, RelogioMonotonico
 from principal import outbox as outbox_cli
 from principal.mensageria.relay import RelayOutbox
 from principal.outbox import reprocessar
@@ -77,7 +77,7 @@ def test_404_e_5xx_repetem_e_4xx_definitivo_falha(
 def test_5xx_nao_esgota_por_tentativas_so_pelo_prazo(
     banco: BancoDeDados, api: Api, relogio: RelogioFixo, engine: Engine
 ) -> None:
-    """Item 4.1 da revisão: queda longa do serviço de venda não perde a mensagem."""
+    """ADR-003: queda longa do serviço de venda não perde a mensagem."""
     api.cadastrar()
     vendas = EntregadorFalso(*([503] * 25))
     relay = RelayOutbox(banco, vendas, relogio, prazo_entrega=timedelta(hours=2))
@@ -141,12 +141,10 @@ def test_relay_com_cliente_http_real(banco: BancoDeDados, api: Api, relogio: Rel
 def test_gauge_de_pendentes_nao_conta_a_cada_ciclo_ocioso(
     banco: BancoDeDados, api: Api, relogio: RelogioFixo
 ) -> None:
-    """Item 4.6 da revisão: `count(*)` só quando entregou algo ou a cada 10 s ocioso."""
-    instante = [0.0]
+    """ADR-003: `count(*)` só quando entregou algo ou a cada 10 s ocioso."""
+    monotonico = RelogioMonotonico()
     metricas = Metricas()
-    relay = RelayOutbox(
-        banco, EntregadorFalso(), relogio, metricas=metricas, monotonic=lambda: instante[0]
-    )
+    relay = RelayOutbox(banco, EntregadorFalso(), relogio, metricas=metricas, monotonic=monotonico)
     contagens: list[int] = []
     original = relay.pendentes
 
@@ -156,13 +154,13 @@ def test_gauge_de_pendentes_nao_conta_a_cada_ciclo_ocioso(
 
     relay.pendentes = contar  # type: ignore[method-assign]
     relay.entregar_pendentes()  # primeiro ciclo: sempre atualiza
-    instante[0] = 5.0
+    monotonico.instante = 5.0
     relay.entregar_pendentes()  # ocioso há 5 s: não consulta
     assert len(contagens) == 1
     api.cadastrar()
     relay.entregar_pendentes()  # entregou: atualiza na hora
     assert len(contagens) == 2
-    instante[0] = 16.0
+    monotonico.instante = 16.0
     relay.entregar_pendentes()  # ocioso há mais de 10 s: atualiza
     assert len(contagens) == 3
     assert "revenda_outbox_pendentes 0.0" in metricas.exportar().decode()
@@ -177,7 +175,7 @@ def test_reprocessar_devolve_falhou_a_pendente(
     engine: Engine,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Item 4.2 da revisão: depois de corrigida a causa, a mensagem volta para a fila."""
+    """ADR-003: depois de corrigida a causa, a mensagem volta para a fila."""
     api.cadastrar()
     api.cadastrar()
     vendas.responder(422, 422)  # contrato quebrado: as duas viram FALHOU
@@ -200,7 +198,7 @@ def test_reprocessar_devolve_falhou_a_pendente(
 def test_reprocessada_depois_do_prazo_vencido_ganha_prazo_novo(
     banco: BancoDeDados, api: Api, relogio: RelogioFixo, engine: Engine
 ) -> None:
-    """Revisão do item 4.2: depois de uma queda longa, a mensagem reprocessada não volta
+    """ADR-003, reprocessamento: depois de uma queda longa, a mensagem reprocessada não volta
     já vencida (o prazo conta do reprocessamento, não da criação original)."""
     api.cadastrar()
     vendas = EntregadorFalso(503, 503)
